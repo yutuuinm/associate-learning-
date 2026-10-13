@@ -21,6 +21,7 @@ function route(){
   else if(view==='listen') renderListen(arg);
   else if(view==='match') renderMatch(arg);
   else if(view==='cloze') renderCloze(arg);
+  else if(view==='import') C.IMP.render();
   else if(view==='settings') renderSettings();
   else renderHome();
   window.scrollTo(0,0);
@@ -85,6 +86,8 @@ function renderHome(){
   h+='<button onclick="location.href=\'#/bank\'">进入题库</button></div>';
   h+='<div class="card tight"><h3 style="margin-top:0">设置</h3><p class="sub">AI 接口、导入试卷、重置测评。</p>';
   h+='<button onclick="location.href=\'#/settings\'">打开设置</button></div>';
+  h+='<div class="card tight"><h3 style="margin-top:0">导入题目</h3><p class="sub">上传 PDF / TXT，或粘贴文本，自动拆成题目，核对后入库。</p>';
+  h+='<button class="primary" onclick="location.href=\'#/import\'">去导入</button></div>';
   h+='</div>';
   h+='<div class="card tight"><h3 style="margin-top:0">关于题库的说明</h3>';
   h+='<p class="sub" style="margin:0">真实六级真题受版权保护，本站不内置真题。内置的是按真题题型、分值、篇幅自编的仿真卷。你拿到官方真题后，可在「设置 → 导入试卷」里粘进来，格式见该页说明。</p></div>';
@@ -235,7 +238,8 @@ function renderPlan(){
 /* ---------- 题库 ---------- */
 function renderBank(){
   var imp=C.get('cet6_imported',[]);
-  var h='<div class="card"><h1>题库</h1><p class="sub">内置仿真卷按真题题型与分值自编。做完可以开「辅助提示」重做一遍。</p></div>';
+  var h='<div class="card"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1"><h1>题库</h1><p class="sub" style="margin:0">内置仿真卷按真题题型与分值自编。做完可以开「辅助提示」重做一遍。</p></div>';
+  h+='<button class="primary" onclick="location.href=\'#/import\'">+ 导入题目</button></div></div>';
   h+='<div class="card"><h3>仔细阅读（每题 14.2 分，全卷最值钱）</h3><ul class="list">';
   B.readings.forEach(function(r){
     h+='<li><span class="tag">'+r.topic+'</span><span style="flex:1">'+esc(r.title)+' · '+r.words+' 词 · '+r.qs.length+' 题</span><button onclick="location.href=\'#/read/'+r.id+'\'">开始</button></li>';
