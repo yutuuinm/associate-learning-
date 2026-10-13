@@ -12,9 +12,40 @@ var TITLES={home:'总览',assess:'能力测评',plan:'我的方案',bank:'题库
   listen:'听力',match:'长篇匹配',cloze:'选词填空',vocab:'生词速记',wrong:'错题本',
   stats:'数据分析',import:'导入题目',settings:'设置',redo:'错题重做'};
 
+/* ---------- 考试切换（CET-6 / 349 药学综合） ---------- */
+C.exam = get('cet6_exam','cet6');
+C.applyExam = function(){
+  var k = C.exam;
+  var mc=$('menuCet6'), mp=$('menuPharm');
+  if(mc) mc.className = 'menu' + (k==='cet6'?' on':'');
+  if(mp) mp.className = 'menu' + (k==='pharm'?' on':'');
+  var b1=$('exCet6'), b2=$('exPharm');
+  if(b1) b1.className = k==='cet6'?'on':'';
+  if(b2) b2.className = k==='pharm'?'on':'';
+  var tc=$('topCet6'), tp=$('topPharm');
+  if(tc) tc.style.display = k==='cet6'?'':'none';
+  if(tp) tp.style.display = k==='pharm'?'':'none';
+  var sub=$('sideSub');
+  if(sub) sub.textContent = k==='pharm' ? '349 · 有机/分析/生化' : '目标 425 · 12 月 12 日';
+};
+C.setExam = function(k){
+  C.exam = k; set('cet6_exam', k);
+  C.applyExam();
+  var target = k==='pharm' ? '#/p/home' : '#/home';
+  if(location.hash === target) route(); else location.hash = target;
+};
+
 function route(){
   var h=(location.hash||'#/home').replace(/^#\/?/,'');
   var p=h.split('/'), view=p[0]||'home', arg=p[1];
+
+  /* 349 模块：#/p/... */
+  if(view==='p'){
+    if(C.exam!=='pharm'){ C.exam='pharm'; C.applyExam() }
+    if(C.PHARMV){ C.PHARMV.route(p.slice(1)); set('cet6_last', location.hash); return }
+  }
+  if(C.exam!=='cet6'){ C.exam='cet6'; C.applyExam() }
+
   var app=$('app'); app.innerHTML='';
   hideTrans();
   T.unbind();
@@ -39,7 +70,7 @@ function route(){
   T.refreshBadges();
 }
 function markNav(v){
-  var as=document.querySelectorAll('.side a');
+  var as=document.querySelectorAll('#menuCet6 a');
   for(var i=0;i<as.length;i++){
     var hr=as[i].getAttribute('href')||'';
     as[i].className = (hr==='#/'+v || hr.indexOf('#/'+v+'/')===0) ? 'on' : '';
@@ -1067,5 +1098,8 @@ C.wipe=function(){
 /* ================= 启动 ================= */
 window.addEventListener('hashchange',route);
 if('speechSynthesis' in window){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){speechSynthesis.getVoices()} }
+/* 用 hash 反推当前考试，避免刷新后菜单与内容不一致 */
+if((location.hash||'').indexOf('#/p/')===0){ C.exam='pharm' }
+C.applyExam();
 route();
 })();
