@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CET-6 训练台 · 高效过级</title>
+<title>备考台 · CET-6 / 349 药学综合</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,27 +12,46 @@
   <!-- ============ 侧边栏 ============ -->
   <aside class="side" id="side">
     <div class="brand">
-      <div class="lg">C6</div>
-      <div class="nm">CET-6 训练台<small id="sideSub">目标 425 · 12 月 12 日</small></div>
+      <div class="lg">备考</div>
+      <div class="nm">备考台<small id="sideSub">选一个考试</small></div>
     </div>
 
-    <div class="grp">诊断</div>
-    <a href="#/home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 12h8v9h-8zM3 15h8v6H3z"/></svg>总览</a>
-    <a href="#/assess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>能力测评</a>
-    <a href="#/plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>我的方案</a>
+    <div class="grp">切换考试</div>
+    <div class="examsw">
+      <button id="exCet6" onclick="CET6.setExam('cet6')">CET-6</button>
+      <button id="exPharm" onclick="CET6.setExam('pharm')">349 药学</button>
+    </div>
 
-    <div class="grp">训练</div>
-    <a href="#/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>题库</a>
-    <a href="#/listen/LL1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 17v-5a9 9 0 0 1 18 0v5"/><path d="M21 18.5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 18.5a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>讲座听力</a>
+    <!-- CET-6 菜单 -->
+    <div class="menu" id="menuCet6">
+      <div class="grp">诊断</div>
+      <a href="#/home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 12h8v9h-8zM3 15h8v6H3z"/></svg>总览</a>
+      <a href="#/assess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>能力测评</a>
+      <a href="#/plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>我的方案</a>
+      <div class="grp">训练</div>
+      <a href="#/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>题库</a>
+      <a href="#/listen/LL1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 17v-5a9 9 0 0 1 18 0v5"/><path d="M21 18.5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 18.5a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>讲座听力</a>
+      <div class="grp">效率工具</div>
+      <a href="#/vocab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>生词速记<span class="cnt" id="cDue">0</span></a>
+      <a href="#/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cWrong">0</span></a>
+      <a href="#/stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>数据分析</a>
+      <div class="grp">系统</div>
+      <a href="#/import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>导入题目</a>
+      <a href="#/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+    </div>
 
-    <div class="grp">效率工具</div>
-    <a href="#/vocab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>生词速记<span class="cnt" id="cDue">0</span></a>
-    <a href="#/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cWrong">0</span></a>
-    <a href="#/stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>数据分析</a>
-
-    <div class="grp">系统</div>
-    <a href="#/import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>导入题目</a>
-    <a href="#/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+    <!-- 349 菜单 -->
+    <div class="menu" id="menuPharm">
+      <div class="grp">349 药学综合</div>
+      <a href="#/p/home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 12h8v9h-8zM3 15h8v6H3z"/></svg>总览</a>
+      <a href="#/p/note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h10l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>学霸笔记</a>
+      <a href="#/p/recite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>带背<span class="cnt" id="cRecite">▶</span></a>
+      <a href="#/p/mech"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h6M14 18h6"/><path d="M7 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM17 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M10 15c3-1 3-5 4-7"/></svg>反应机理</a>
+      <a href="#/p/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>常考题</a>
+      <a href="#/p/star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>我的收藏</a>
+      <div class="grp">数据来源</div>
+      <a href="#/p/about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg>考试说明</a>
+    </div>
 
     <div class="sidefoot">
       <div class="mini" id="sideFoot">提示全开 = 学得快<br>调到「模拟考试」= 检验真水平</div>
@@ -46,23 +65,28 @@
       <div class="crumb" id="crumb">总览</div>
       <div class="topsp"></div>
 
-      <label class="switch" id="swHoverWrap">
-        <input type="checkbox" id="swHover" onchange="CET6.toggleHover(this.checked)"><i></i>
-        <span>划词提示</span>
-      </label>
-      <div class="tseg">
-        <span>辅助</span>
-        <select id="swAssist" onchange="CET6.setAssist(+this.value)">
-          <option value="0">模拟考试</option>
-          <option value="1">轻 · 方向</option>
-          <option value="2">中 · 定位</option>
-          <option value="3">强 · 全开</option>
-        </select>
+      <div id="topCet6" class="toptools">
+        <label class="switch" id="swHoverWrap">
+          <input type="checkbox" id="swHover" onchange="CET6.toggleHover(this.checked)"><i></i>
+          <span>划词提示</span>
+        </label>
+        <div class="tseg">
+          <span>辅助</span>
+          <select id="swAssist" onchange="CET6.setAssist(+this.value)">
+            <option value="0">模拟考试</option>
+            <option value="1">轻 · 方向</option>
+            <option value="2">中 · 定位</option>
+            <option value="3">强 · 全开</option>
+          </select>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="swInstant" onchange="CET6.toggleInstant(this.checked)"><i></i>
+          <span>即时反馈</span>
+        </label>
       </div>
-      <label class="switch">
-        <input type="checkbox" id="swInstant" onchange="CET6.toggleInstant(this.checked)"><i></i>
-        <span>即时反馈</span>
-      </label>
+      <div id="topPharm" class="toptools" style="display:none">
+        <span class="pill n" id="pExam">349 · 300 分</span>
+      </div>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
     </header>
 
@@ -86,6 +110,12 @@
     <div class="kr"><span>整篇逐句翻译开关</span><span class="keys"><kbd>T</kbd></span></div>
     <div class="kr"><span>提交本套</span><span class="keys"><kbd>Enter</kbd></span></div>
     <div class="kr"><span>把这个词收进生词本</span><span class="keys"><kbd>S</kbd></span></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
+    <div class="kr"><span>带背：播放 / 暂停</span><span class="keys"><kbd>空格</kbd></span></div>
+    <div class="kr"><span>带背：上一条 / 下一条</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></div>
+    <div class="kr"><span>带背：显示答案</span><span class="keys"><kbd>D</kbd></span></div>
+    <div class="kr"><span>带背：收藏本条</span><span class="keys"><kbd>F</kbd></span></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
     <div class="kr"><span>关闭浮层</span><span class="keys"><kbd>Esc</kbd></span></div>
     <div class="kr"><span>打开这个面板</span><span class="keys"><kbd>?</kbd></span></div>
     <div style="margin-top:16px;text-align:right"><button class="primary sm" onclick="CET6.TOOLS.kbdClose()">知道了</button></div>
@@ -100,6 +130,12 @@
 <script src="js/stats.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/import.js"></script>
+<script src="js/pharm-org1.js"></script>
+<script src="js/pharm-org2.js"></script>
+<script src="js/pharm-ana.js"></script>
+<script src="js/pharm-bio.js"></script>
+<script src="js/recite.js"></script>
+<script src="js/pharm.js"></script>
 <script src="js/app.js"></script>
 <script>
   (function(){
