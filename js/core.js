@@ -8,7 +8,7 @@ var KEY='cet6_settings_v1', PKEY='cet6_profile_v1', DCACHE='cet6_dictcache_v1';
 /* ---------- 设置 ---------- */
 var DEF = {
   hoverTip:true,   // 鼠标移到词上给提示
-  assist:3,        // 0 关（模拟考试）1 只给方向 2 方向+定位 3 全开（含解析）
+  assist:2,        // 0 关（模拟考试）1 只给方向 2 方向+定位 3 全开（含解析）
   instant:true,    // 即时反馈（学习模式）
   ai:{enabled:false, baseUrl:'https://api.openai.com/v1', key:'', model:'gpt-4o-mini'}
 };
@@ -85,6 +85,7 @@ document.addEventListener('mouseover',function(e){
   var t=e.target;
   if(!t||!t.classList) return;
   if(t.classList.contains('w')){
+    C.lastWord = String(t.textContent||'').toLowerCase().replace(/[^a-z-]/g,'');
     var def=C.lookup(t.textContent);
     var tipEl=C.$('tip'); if(!tipEl) return;
     if(def){
