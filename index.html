@@ -3,28 +3,93 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CET-6 训练台</title>
+<title>CET-6 训练台 · 高效过级</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<nav class="nav">
-  <span class="brand">CET-6 训练台</span>
-  <a href="#/home">首页</a>
-  <a href="#/assess">测评</a>
-  <a href="#/plan">方案</a>
-  <a href="#/bank">题库</a>
-  <a href="#/import">导入题目</a>
-  <a href="#/settings">设置</a>
-  <span class="sp"></span>
-  <span class="sw"><input type="checkbox" id="navHover" onchange="CET6.toggleHover(this.checked)">划词提示</span>
-</nav>
 
-<div class="wrap" id="app"></div>
+<div class="app">
+  <!-- ============ 侧边栏 ============ -->
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="lg">C6</div>
+      <div class="nm">CET-6 训练台<small id="sideSub">目标 425 · 12 月 12 日</small></div>
+    </div>
+
+    <div class="grp">诊断</div>
+    <a href="#/home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 12h8v9h-8zM3 15h8v6H3z"/></svg>总览</a>
+    <a href="#/assess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>能力测评</a>
+    <a href="#/plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>我的方案</a>
+
+    <div class="grp">训练</div>
+    <a href="#/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>题库</a>
+    <a href="#/listen/LL1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 17v-5a9 9 0 0 1 18 0v5"/><path d="M21 18.5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 18.5a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>讲座听力</a>
+
+    <div class="grp">效率工具</div>
+    <a href="#/vocab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>生词速记<span class="cnt" id="cDue">0</span></a>
+    <a href="#/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cWrong">0</span></a>
+    <a href="#/stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>数据分析</a>
+
+    <div class="grp">系统</div>
+    <a href="#/import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>导入题目</a>
+    <a href="#/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+
+    <div class="sidefoot">
+      <div class="mini" id="sideFoot">提示全开 = 学得快<br>调到「模拟考试」= 检验真水平</div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <div class="main">
+    <header class="top">
+      <button class="burger" onclick="document.getElementById('side').classList.toggle('open')">☰</button>
+      <div class="crumb" id="crumb">总览</div>
+      <div class="topsp"></div>
+
+      <label class="switch" id="swHoverWrap">
+        <input type="checkbox" id="swHover" onchange="CET6.toggleHover(this.checked)"><i></i>
+        <span>划词提示</span>
+      </label>
+      <div class="tseg">
+        <span>辅助</span>
+        <select id="swAssist" onchange="CET6.setAssist(+this.value)">
+          <option value="0">模拟考试</option>
+          <option value="1">轻 · 方向</option>
+          <option value="2">中 · 定位</option>
+          <option value="3">强 · 全开</option>
+        </select>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="swInstant" onchange="CET6.toggleInstant(this.checked)"><i></i>
+        <span>即时反馈</span>
+      </label>
+      <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
+    </header>
+
+    <div class="content" id="app"></div>
+  </div>
+</div>
 
 <div id="tip" style="display:none"></div>
 <div id="trans">
   <div class="lbl">译文</div>
   <div id="tt" class="empty">把鼠标移到任意句子上，这里显示整句翻译</div>
+</div>
+<div id="toast"></div>
+<div id="kbd">
+  <div class="box" onclick="event.stopPropagation()">
+    <h3>快捷键</h3>
+    <div class="kr"><span>选择选项</span><span class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> 或 <kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd></span></div>
+    <div class="kr"><span>上一题 / 下一题</span><span class="keys"><kbd>K</kbd><kbd>J</kbd></span></div>
+    <div class="kr"><span>展开 / 收起本题解析</span><span class="keys"><kbd>E</kbd></span></div>
+    <div class="kr"><span>定位到原文依据</span><span class="keys"><kbd>L</kbd></span></div>
+    <div class="kr"><span>整篇逐句翻译开关</span><span class="keys"><kbd>T</kbd></span></div>
+    <div class="kr"><span>提交本套</span><span class="keys"><kbd>Enter</kbd></span></div>
+    <div class="kr"><span>把这个词收进生词本</span><span class="keys"><kbd>S</kbd></span></div>
+    <div class="kr"><span>关闭浮层</span><span class="keys"><kbd>Esc</kbd></span></div>
+    <div class="kr"><span>打开这个面板</span><span class="keys"><kbd>?</kbd></span></div>
+    <div style="margin-top:16px;text-align:right"><button class="primary sm" onclick="CET6.TOOLS.kbdClose()">知道了</button></div>
+  </div>
 </div>
 
 <script src="js/dict.js"></script>
@@ -32,11 +97,20 @@
 <script src="js/bank-other.js"></script>
 <script src="js/assess.js"></script>
 <script src="js/core.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/tools.js"></script>
 <script src="js/import.js"></script>
 <script src="js/app.js"></script>
 <script>
-  var h=document.getElementById('navHover');
-  if(h) h.checked = CET6.settings.hoverTip;
+  (function(){
+    var s = CET6.settings;
+    var h = document.getElementById('swHover'); if(h) h.checked = s.hoverTip;
+    var i = document.getElementById('swInstant'); if(i) i.checked = s.instant;
+    var a = document.getElementById('swAssist'); if(a) a.value = String(s.assist);
+    var hw = document.getElementById('swHoverWrap'); if(hw && s.hoverTip) hw.classList.add('on');
+    CET6.syncTop();
+    CET6.TOOLS.refreshBadges();
+  })();
 </script>
 </body>
 </html>
