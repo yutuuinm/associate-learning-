@@ -45,7 +45,7 @@ p{margin:0 0 10px}
   border-bottom:1px solid var(--line);padding:0 22px;min-height:56px;
   display:flex;align-items:center;gap:14px;flex-wrap:wrap;
 }
-.content{flex:1;padding:20px 22px 130px;max-width:1180px;width:100%;align-self:flex-start}
+.content{flex:1;padding:20px 22px 130px;max-width:1180px;width:100%;margin:0 auto}
 .crumb{font-size:13px;color:var(--mut)}
 .crumb b{color:var(--ink);font-weight:600}
 .topsp{flex:1}
