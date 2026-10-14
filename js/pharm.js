@@ -8,6 +8,7 @@ var P = C.PHARM || {};
 var V = C.PHARMV = {};
 var $ = C.$, esc = C.esc, get = C.get, set = C.set;
 var R = C.RC;
+var Q = C.PHARMQ;
 
 var COURSES = [
   {k:'org', n:'有机化学', list:P.org || [], book:'胡春《有机化学》三版'},
@@ -21,7 +22,8 @@ function countPts(){ var n=0; allChs().forEach(function(x){ n += (x.ch.pts||[]).
 function countQs(){ var n=0; allChs().forEach(function(x){ n += (x.ch.qs||[]).length }); return n }
 function countMech(){ var n=0; (P.org||[]).forEach(function(ch){ n += (ch.mech||[]).length }); return n }
 
-V.titles = {home:'349 总览', note:'学霸笔记', recite:'带背', mech:'反应机理', bank:'常考题', star:'我的收藏', about:'考试说明'};
+V.titles = {home:'349 总览', note:'学霸笔记', recite:'带背', mech:'反应机理', bank:'常考题',
+            wrong:'错题本', master:'掌握度', star:'我的收藏', about:'考试说明'};
 
 /* ================= 路由 ================= */
 V.route = function(parts){
@@ -38,12 +40,15 @@ V.route = function(parts){
   else if(v==='recite') renderRecite(arg);
   else if(v==='mech') arg ? renderMechOne(arg) : renderMech();
   else if(v==='bank') renderBank(arg, arg2);
+  else if(v==='wrong') renderWrong(arg);
+  else if(v==='master') renderMaster();
   else if(v==='star') renderStar();
   else if(v==='about') renderAbout();
   else renderHome();
   window.scrollTo(0,0);
   markNav(v);
   setCrumb(v);
+  if(C.TOOLS && C.TOOLS.refreshBadges) C.TOOLS.refreshBadges();
 };
 function setCrumb(v){ var c=$('crumb'); if(c) c.innerHTML='<b>'+(V.titles[v]||'')+'</b>' }
 function hideTrans(){ var t=$('tt'); if(t){ t.innerHTML='把鼠标移到任意句子上，这里显示整句翻译'; t.className='empty' } }
@@ -70,11 +75,21 @@ function renderHome(){
   h += '<div class="mc"><div class="l">常考题</div><div class="v">'+countQs()+'</div><div class="u">道</div></div>';
   h += '<div class="mc"><div class="l">反应机理</div><div class="v">'+countMech()+'</div><div class="u">个分步拆解</div></div>';
   h += '</div>';
+
+  /* 学习状态 */
+  var tm = Q.totalMaster(), wk = Q.wrongCount(), mk = Q.markTotal();
+  h += '<div class="grid" style="margin-top:10px">';
+  h += '<div class="mc"><div class="l">掌握度</div><div class="v">'+(tm==null?'—':tm)+'</div><div class="u">'+(tm==null?'还没测过':Q.level(tm).t+'　<a href="#/p/master">详情</a>')+'</div></div>';
+  h += '<div class="mc"><div class="l">错题</div><div class="v">'+wk+'</div><div class="u">'+(wk?'<a href="#/p/wrong">去错题本</a>':'全对')+'</div></div>';
+  h += '<div class="mc"><div class="l">自评标记</div><div class="v">'+(mk.yes+mk.mid+mk.no)+'</div><div class="u">会'+mk.yes+' 模糊'+mk.mid+' 不会'+mk.no+'</div></div>';
+  h += '<div class="mc"><div class="l">连续天数</div><div class="v">'+Q.streak()+'</div><div class="u">今日 '+Q.day().q+' 题</div></div>';
+  h += '</div>';
   h += '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">';
   h += '<button class="primary big" onclick="location.href=\'#/p/recite\'">开始带背</button> ';
   h += '<button class="big" onclick="location.href=\'#/p/note\'">看笔记</button> ';
   h += '<button class="big" onclick="location.href=\'#/p/mech\'">看机理</button> ';
   h += '<button class="big" onclick="location.href=\'#/p/bank\'">刷题</button>';
+  if(wk) h += ' <button class="big" onclick="location.href=\'#/p/wrong\'">错题本 '+wk+'</button>';
   h += '</div></div>';
 
   /* 三科 */
@@ -130,13 +145,18 @@ function renderNote(k){
   h += '</div></div>';
   h += '<p class="sub" style="margin:8px 0 0">一句话一条，不废话。标 <span class="kw">红</span> 的是常考陷阱，紫色是口诀。点「背」直接进带背。</p></div>';
 
+  var cm = Q.courseMaster(NOTE_COURSE);
+  h += '<div class="card tight"><div class="mrow"><span class="hint" style="flex:1">本科目掌握度（已测 '+cm.tested+'/'+cm.total+' 章，测过才计入）</span>'+mBar(cm.m)+'</div></div>';
+
   c.list.forEach(function(ch){
     h += '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
     h += '<div style="flex:1;min-width:200px"><h3 style="margin:0">'+esc(ch.t)+'</h3>';
     h += '<div class="hint">'+esc(ch.sub||'')+'</div></div>';
     h += hotBar(ch.hot);
+    h += mBar(Q.master(ch.id));
     h += '<button class="sm primary" onclick="location.href=\'#/p/note/ch/'+ch.id+'\'">展开</button> ';
-    h += '<button class="sm" onclick="CET6.PHARMV.reciteCh(\''+ch.id+'\')">背这章</button></div>';
+    h += '<button class="sm" onclick="CET6.PHARMV.reciteCh(\''+ch.id+'\')">背这章</button> ';
+    h += '<button class="sm" onclick="location.href=\'#/p/bank/'+NOTE_COURSE+'/'+ch.id+'\'">做题</button></div>';
     h += '<div class="hint" style="margin-top:6px">'+(ch.pts||[]).length+' 条知识点 · '+(ch.qs||[]).length+' 道题'+(ch.mech&&ch.mech.length?(' · '+ch.mech.length+' 个机理'):'')+'</div></div>';
   });
   $('app').innerHTML = h;
@@ -150,6 +170,7 @@ function renderNoteCh(id, back){
   h += '<div style="flex:1;min-width:200px"><h1 style="margin:0">'+esc(ch.t)+'</h1>';
   h += '<div class="hint">'+esc(f.c.n)+' · '+esc(ch.sub||'')+'</div></div>';
   h += hotBar(ch.hot);
+  h += mBar(Q.master(ch.id));
   h += '<button class="sm primary" onclick="CET6.PHARMV.reciteCh(\''+ch.id+'\')">背这一章</button> ';
   h += '<button class="sm" onclick="location.href=\'#/p/bank/'+f.c.k+'/'+ch.id+'\'">做这章的题</button> ';
   h += '<button class="sm" onclick="location.href=\'#/p/note/c/'+f.c.k+'\'">返回</button></div></div>';
@@ -189,6 +210,15 @@ function reciteItems(scopeKey){
     allChs().forEach(function(x){
       if((x.ch.hot||0) >= 5) (x.ch.pts||[]).forEach(function(p){
         out.push({id:x.ch.id+'.'+p.k, k:p.k, a:p.a, mn:p.mn, from:x.c.n+' · '+x.ch.t});
+      });
+    });
+  }else if(scopeKey === 'weak' || scopeKey === 'new'){
+    title = scopeKey === 'weak' ? '不会 + 模糊' : '还没标记过的';
+    allChs().forEach(function(x){
+      (x.ch.pts||[]).forEach(function(p){
+        var g = Q ? Q.markOf(p) : null;
+        var hit = scopeKey === 'weak' ? (g === 0 || g === 1) : (g == null);
+        if(hit) out.push({id:x.ch.id+'.'+p.k, k:p.k, a:p.a, mn:p.mn, from:x.c.n+' · '+x.ch.t});
       });
     });
   }else if(scopeKey && scopeKey.indexOf('ch_') === 0){
@@ -234,10 +264,14 @@ function renderRecite(scopeKey){
   h += '<span class="chip'+(key==='all'?' on':'')+'" onclick="CET6.PHARMV.scope(\'all\')">全部</span>';
   h += '<span class="chip'+(key==='hot'?' on':'')+'" onclick="CET6.PHARMV.scope(\'hot\')">只背高频</span>';
   h += '<span class="chip'+(key==='star'?' on':'')+'" onclick="CET6.PHARMV.scope(\'star\')">只背收藏</span>';
+  h += '<span class="chip'+(key==='weak'?' on':'')+'" onclick="CET6.PHARMV.scope(\'weak\')">只背不会/模糊</span>';
+  h += '<span class="chip'+(key==='new'?' on':'')+'" onclick="CET6.PHARMV.scope(\'new\')">只背没标记的</span>';
   COURSES.forEach(function(c){
     h += '<span class="chip'+(key==='c_'+c.k?' on':'')+'" onclick="CET6.PHARMV.scope(\'c_'+c.k+'\')">'+esc(c.n)+'</span>';
   });
   h += '</div>';
+  var mkt = Q.markTotal();
+  h += '<div class="hint" style="margin-top:6px">自评进度：会 <b>'+mkt.yes+'</b> · 模糊 <b>'+mkt.mid+'</b> · 不会 <b>'+mkt.no+'</b>（共 '+countPts()+' 条）。标记后会进入掌握度。</div>';
   if(key.indexOf('ch_') === 0){
     var f = findCh(key.slice(3));
     h += '<div class="hint">正在背：'+esc(f? (f.c.n+' · '+f.ch.t) : key)+'　<a href="#/p/note">换一章</a></div>';
@@ -285,6 +319,41 @@ function renderRecite(scopeKey){
   if(st.mode === 'listen' && !st.show) h += '<div class="ra" style="color:var(--mut2)">（按 <kbd>D</kbd> 或点下面按钮显示答案）</div>';
   h += '<div class="rcmeta">'+esc(it.from||'')+'　·　第 '+(st.i+1)+' / '+st.list.length+'</div>';
   h += '</div>';
+
+  /* 默写（填空 / 听背模式下都能打字自测） */
+  if(st.mode === 'fill' || st.mode === 'listen'){
+    if(WRITE.id !== it.id){ WRITE.id = it.id; WRITE.txt = ''; WRITE.res = null }
+    var target = st.mode === 'fill' ? (bl && bl.ans[0] || '') : it.a;
+    h += '<div class="card tight"><div class="wrt">';
+    h += '<div class="hint" style="margin-bottom:6px">默写：先自己敲一遍，再对答案（按 <kbd>Enter</kbd> 对答案）</div>';
+    h += '<textarea id="wrtBox" placeholder="'+(st.mode==='fill'?'把挖空的那段写出来':'把整条要点写出来')+'" oninput="CET6.PHARMV.rcType(this.value)" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();CET6.PHARMV.rcCheck()}">'+esc(WRITE.txt)+'</textarea>';
+    h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+    h += '<button class="sm primary" onclick="CET6.PHARMV.rcCheck()">对答案</button> ';
+    h += '<button class="sm" onclick="CET6.PHARMV.rcReveal()">看答案</button>';
+    h += '</div>';
+    if(WRITE.res){
+      var r = WRITE.res;
+      h += '<div class="tipbox" style="margin-top:8px;border-left:3px solid '+(r.rate>=0.6?'var(--ok)':(r.rate>=0.3?'var(--wn)':'var(--er)'))+'">';
+      h += '<div>'+(r.rate>=0.6?'<span class="pill g">差不多对了</span>':(r.rate>=0.3?'<span class="pill y">对了一半</span>':'<span class="pill r">基本没对</span>'))+'　命中 '+r.hit+'/'+r.all+' 个关键词（'+Math.round(r.rate*100)+'%）</div>';
+      h += '<div style="margin-top:6px;color:var(--mut)">漏掉：'+esc(r.miss.length?r.miss.join('、'):'无')+'</div>';
+      h += '<div style="margin-top:6px">参考答案：'+esc(target)+'</div>';
+      h += '</div>';
+    }
+    h += '</div></div>';
+  }
+
+  /* 自评：不会 / 模糊 / 会 */
+  var mk = Q.markOf(it);
+  h += '<div class="card tight"><div class="mrow">';
+  h += '<span class="hint" style="flex:1">这条你现在的状态（会写进掌握度）</span>';
+  h += '<div class="mkseg">';
+  h += '<button class="'+(mk===0?'on no':'')+'" onclick="CET6.PHARMV.rcMark(0)">不会</button>';
+  h += '<button class="'+(mk===1?'on mid':'')+'" onclick="CET6.PHARMV.rcMark(1)">模糊</button>';
+  h += '<button class="'+(mk===2?'on yes':'')+'" onclick="CET6.PHARMV.rcMark(2)">会</button>';
+  h += '</div>';
+  h += '<button class="sm" onclick="CET6.PHARMV.rcMark(null)">清除</button>';
+  h += '<span class="hint">快捷键 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span>';
+  h += '</div></div>';
 
   /* 进度条 */
   h += '<div class="bar" style="margin:12px 0"><i style="width:'+(R.progress()*100).toFixed(1)+'%"></i></div>';
@@ -343,6 +412,7 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'ArrowLeft'){ V.rcPrev(); e.preventDefault(); return }
   if(k === 'd'){ V.rcReveal(); e.preventDefault(); return }
   if(k === 'f'){ V.rcStar(); e.preventDefault(); return }
+  if(k === '1' || k === '2' || k === '3'){ V.rcMark(+k - 1); e.preventDefault(); return }
 });
 
 /* ================= 机理 ================= */
@@ -389,6 +459,49 @@ function renderMechOne(id){
   $('app').innerHTML = h;
 }
 
+/* ================= 默写（打字自测） ================= */
+var WRITE = {id:'', txt:'', res:null};
+function norm(s){ return String(s||'').replace(/[\s，,。；;、（）()【】\[\]:：　·"'’“”_—–-]/g,'') }
+function bigrams(s){
+  var a = [];
+  for(var i=0;i<s.length-1;i++) a.push(s.substr(i,2));
+  return a.length ? a : [s];
+}
+/* 中文用二元组覆盖率判，比逐字比对宽容；含英文/数字则整段当一段 */
+function keyMatch(target, typed){
+  var T = norm(target), Y = norm(typed);
+  if(!T) return {rate:0, hit:0, all:0, miss:[]};
+  var segs = String(target).split(/[，,；;。、]/).map(norm).filter(function(x){ return x.length>1 });
+  if(!segs.length) segs = [T];
+  var hit = 0, miss = [];
+  segs.forEach(function(s){
+    var bs = bigrams(s), ok = 0;
+    bs.forEach(function(b){ if(Y.indexOf(b) >= 0) ok++ });
+    if(ok / bs.length >= 0.5) hit++;
+    else miss.push(s.slice(0,20));
+  });
+  return {rate: segs.length ? hit/segs.length : 0, hit:hit, all:segs.length, miss:miss};
+}
+V.rcType = function(v){ WRITE.txt = v || ''; WRITE.res = null };
+V.rcCheck = function(){
+  var it = R.cur(); if(!it) return;
+  var target = R.state.mode === 'fill' ? ((R.blank(it.a).ans||[])[0] || '') : it.a;
+  WRITE.res = keyMatch(target, WRITE.txt);
+  renderRecite();
+  var b = document.getElementById('wrtBox');
+  if(b){ b.focus(); try{ b.setSelectionRange(b.value.length, b.value.length) }catch(e){} }
+};
+V.rcMark = function(g){
+  var it = R.cur(); if(!it) return;
+  Q.mark(it, g);
+  if(g != null){
+    var n = ['不会','模糊','会'][g];
+    if(C.TOOLS && C.TOOLS.toast) C.TOOLS.toast('已标记为「'+n+'」');
+    R.stop(); R.next(); WRITE = {id:'', txt:'', res:null};
+  }
+  renderRecite();
+};
+
 /* ================= 题库 ================= */
 var BANK = {course:'org', ch:'', ans:{}, done:false, list:[]};
 function renderBank(ck, chId){
@@ -401,7 +514,7 @@ function renderBank(ck, chId){
     if(f){ qs = (f.ch.qs||[]).slice(); title = f.c.n + ' · ' + f.ch.t }
   }else{
     c.list.forEach(function(ch){
-      (ch.qs||[]).forEach(function(q){ qs.push(Object.assign({__from:ch.t}, q)) });
+      (ch.qs||[]).forEach(function(q){ qs.push(Object.assign({__from:ch.t, __ch:ch.id}, q)) });
     });
   }
   BANK.list = qs; BANK.ans = {}; BANK.done = false;
@@ -470,7 +583,7 @@ function renderBank(ck, chId){
 }
 V.gradeBank = function(){
   BANK.done = true;
-  var ok = 0;
+  var ok = 0, judged = 0, rec = {};
   BANK.list.forEach(function(q, i){
     var got = BANK.ans[i];
     var right;
@@ -480,6 +593,13 @@ V.gradeBank = function(){
       right = (arr === key);
     }else right = (got === q.a);
     if(right) ok++;
+    /* 没选过答案的不算错（否则一键解析会把整章塞进错题本） */
+    var answered = !(got === undefined || got === null || (Array.isArray(got) && !got.length));
+    var sure = (right !== null && answered);
+    if(sure) judged++;
+    /* 记录到掌握度 / 错题本 */
+    var cid = q.__ch || BANK.ch;
+    if(cid) (rec[cid] = rec[cid] || []).push({qn:q.n, type:q.type||'', ok:(sure ? right : null)});
     var el = $('pe_'+i);
     if(!el) return;
     var h = '<div class="ansrow">';
@@ -498,10 +618,136 @@ V.gradeBank = function(){
     h += '</div>';
     el.innerHTML = h;
   });
-  var h = '<div class="card acc '+(ok/BANK.list.length>=0.7?'ok':'wn')+'"><h2>'+ok+' / '+BANK.list.length+'</h2>';
-  h += '<p class="sub" style="margin:0">错的点回去翻笔记，或者直接把那条加进带背反复过。</p></div>';
+  if(Q) Object.keys(rec).forEach(function(cid){ Q.log(cid, rec[cid]) });
+  if(C.TOOLS && C.TOOLS.refreshBadges) C.TOOLS.refreshBadges();
+
+  var rate = judged ? ok/judged : 0;
+  var skip = BANK.list.length - judged;
+  var h = '<div class="card acc '+(judged===0?'':(rate>=0.7?'ok':'wn'))+'"><h2>'+ok+' / '+judged+'</h2>';
+  h += '<p class="sub" style="margin:0">'+(judged?('正确率 '+Math.round(rate*100)+'%。'):'还没判到题。')
+    + (skip?('另有 '+skip+' 道未作答或需自评，不计入。'):'')+'错题已进错题本，连对 2 次自动毕业。</p>';
+  h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+  h += '<button class="sm" onclick="location.href=\'#/p/wrong\'">看错题本</button> ';
+  h += '<button class="sm" onclick="location.href=\'#/p/master\'">看掌握度</button>';
+  h += '</div></div>';
   $('app').insertAdjacentHTML('afterbegin', h);
   window.scrollTo(0,0);
+};
+
+/* ================= 掌握度条 ================= */
+function mBar(m){
+  if(m == null) return '<span class="mbar"><span class="tr"><i style="width:0"></i></span><span class="mv">未测</span></span>';
+  var lv = Q.level(m);
+  return '<span class="mbar '+lv.c+'"><span class="tr"><i style="width:'+m+'%"></i></span><span class="mv">'+m+'</span></span>';
+}
+
+/* ================= 错题本 ================= */
+var WRONG_COURSE = get('cet6_wrongcourse','');
+function renderWrong(ck){
+  if(ck !== undefined) WRONG_COURSE = (ck === 'all' ? '' : ck), set('cet6_wrongcourse', WRONG_COURSE);
+  var list = Q.wrongList(WRONG_COURSE || '');
+  var h = '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h += '<h1 style="margin:0;flex:1">错题本</h1>';
+  h += '<div class="seg">';
+  h += '<button class="'+(!WRONG_COURSE?'on':'')+'" onclick="location.href=\'#/p/wrong/all\'">全部 '+Q.wrongCount()+'</button>';
+  COURSES.forEach(function(x){
+    var n = Q.wrongCount(x.k);
+    h += '<button class="'+(WRONG_COURSE===x.k?'on':'')+'" onclick="location.href=\'#/p/wrong/'+x.k+'\'">'+esc(x.n)+' '+n+'</button>';
+  });
+  h += '</div></div>';
+  h += '<p class="sub" style="margin:8px 0 0">做错自动进来，<b>连对 2 次自动毕业</b>。也可以手动标记「已掌握」移除。每道错题下面直接给了解析要点。</p></div>';
+
+  if(!list.length){
+    h += '<div class="card"><div class="empty-st"><div class="ic">✓</div><p>这个范围没有错题。</p><button class="primary" onclick="location.href=\'#/p/bank\'">去刷题</button></div></div>';
+    $('app').innerHTML = h; return;
+  }
+
+  h += '<div class="card tight"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h += '<span class="hint" style="flex:1">共 '+list.length+' 道'+(WRONG_COURSE?'（'+esc(course(WRONG_COURSE).n)+'）':'')+'</span>';
+  h += '<button class="sm" onclick="CET6.PHARMV.wrongClear()">清空当前范围</button></div></div>';
+
+  list.forEach(function(w, i){
+    var f = Q.findQ(w.ch, w.n);
+    if(!f) return;
+    var q = f.q;
+    h += '<div class="card qz">';
+    h += '<div class="qmeta"><span class="tag">'+esc(f.course.n)+'</span> '+esc(f.ch.t)+'　第 '+w.n+' 题　<span class="tag">'+esc(q.type||'')+'</span>';
+    h += '　错 '+w.n+' 次'+(w.fixed?('　已连对 '+w.fixed+' 次'):'')+'</div>';
+    h += '<div class="qt">'+esc(q.q)+'</div>';
+    if(q.o && q.o.length){
+      h += '<div class="opts">';
+      q.o.forEach(function(o, oi){
+        var isKey = Array.isArray(q.a) ? (q.a.indexOf(oi)>=0) : (oi===q.a);
+        h += '<div class="opt'+(isKey?' ok':'')+'"><span class="k">'+String.fromCharCode(65+oi)+'</span><span>'+esc(o)+'</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="ansrow"><div class="sh">正确答案 '+(Array.isArray(q.a)?q.a.map(function(x){return String.fromCharCode(65+x)}).join(''):String.fromCharCode(65+q.a))+'</div>';
+    }else{
+      h += '<div class="ansrow"><div class="sh">简答 · 参考答案要点</div>';
+    }
+    h += '<div class="tipbox">'+esc(q.why||'')+'</div></div>';
+    h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+    h += '<button class="sm" onclick="CET6.PHARMV.wrongOk(\''+w.ch+'\','+w.n+')">标记已掌握</button> ';
+    h += '<button class="sm" onclick="location.href=\'#/p/bank/'+f.course.c+'/'+w.ch+'\'">重做这章</button> ';
+    h += '<button class="sm" onclick="CET6.PHARMV.reciteCh(\''+w.ch+'\')">背这章</button>';
+    h += '</div></div>';
+  });
+  $('app').innerHTML = h;
+}
+V.wrongOk = function(ch, n){ Q.wrongGraduate(ch, n); V.route(['wrong', WRONG_COURSE||'all']) };
+V.wrongClear = function(){
+  if(!confirm('清空'+(WRONG_COURSE?('「'+course(WRONG_COURSE).n+'」的'):'全部')+'错题记录？掌握度里的答题正确率不受影响。')) return;
+  Q.wrongClear(WRONG_COURSE||''); V.route(['wrong', WRONG_COURSE||'all']);
+};
+
+/* ================= 掌握度 ================= */
+function renderMaster(){
+  var tm = Q.totalMaster(), t = Q.tot(), mk = Q.markTotal();
+  var h = '<div class="card"><h1>掌握度</h1>';
+  h += '<p class="sub">掌握度 = 答题正确率（60%）+ 带背自评（40%），两者都有才算数。只统计已测过的章，没测过的显示为「未测」。</p>';
+  h += '<div class="grid" style="margin-top:14px">';
+  h += '<div class="mc"><div class="l">总体掌握度</div><div class="v">'+(tm==null?'—':tm)+'</div><div class="u">'+(tm==null?'先去做题 / 带背':Q.level(tm).t)+'</div></div>';
+  h += '<div class="mc"><div class="l">已答题</div><div class="v">'+t.tot+'</div><div class="u">正确率 '+(t.tot?Math.round(t.rate*100):0)+'%</div></div>';
+  h += '<div class="mc"><div class="l">待处理错题</div><div class="v">'+Q.wrongCount()+'</div><div class="u"><a href="#/p/wrong">去错题本</a></div></div>';
+  h += '<div class="mc"><div class="l">自评标记</div><div class="v">'+(mk.yes+mk.mid+mk.no)+'</div><div class="u">会 '+mk.yes+' / 模糊 '+mk.mid+' / 不会 '+mk.no+'</div></div>';
+  h += '</div></div>';
+
+  COURSES.forEach(function(c){
+    var r = Q.courseMaster(c.k);
+    h += '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+    h += '<h2 style="margin:0;flex:1">'+esc(c.n)+'</h2>';
+    h += mBar(r.m);
+    h += '<span class="pill">已测 '+r.tested+'/'+r.total+' 章</span></div>';
+    if(r.weak.length){
+      h += '<div class="ntr" style="font-size:12.5px;color:var(--wn);background:var(--wnbg);border-radius:8px;padding:8px 11px;margin-top:10px;line-height:1.7">';
+      h += '最薄弱：' + r.weak.map(function(x){ return esc(x.t)+'（'+x.m+'）' }).join('　·　');
+      h += '　<button class="sm" style="margin-left:6px" onclick="CET6.PHARMV.reciteCh(\''+r.weak[0].id+'\')">先背最弱那章</button></div>';
+    }
+    h += '<ul class="list" style="margin-top:10px">';
+    c.list.forEach(function(ch){
+      var m = Q.master(ch.id), rec = Q.chRec(ch.id), ms = Q.markStat(ch);
+      h += '<li><span class="g">'+esc(ch.t)+'<div class="d">';
+      var bits = [];
+      if(rec.tot) bits.push('做题 '+rec.ok+'/'+rec.tot);
+      if(ms.yes+ms.mid+ms.no) bits.push('自评 会'+ms.yes+' 模糊'+ms.mid+' 不会'+ms.no);
+      h += esc(bits.length?bits.join(' · '):'还没测过');
+      h += '</div></span>';
+      h += mBar(m);
+      h += '<button class="sm" onclick="location.href=\'#/p/bank/'+c.k+'/'+ch.id+'\'">测</button> ';
+      h += '<button class="sm" onclick="CET6.PHARMV.reciteCh(\''+ch.id+'\')">背</button></li>';
+    });
+    h += '</ul></div>';
+  });
+
+  h += '<div class="card tight"><div style="display:flex;gap:8px;flex-wrap:wrap">';
+  h += '<button class="sm" onclick="CET6.PHARMV.wipePharm()">清空 349 全部学习记录</button>';
+  h += '<span class="hint" style="align-self:center">只影响 349，CET-6 的记录不受影响</span></div></div>';
+  $('app').innerHTML = h;
+}
+V.wipePharm = function(){
+  if(!confirm('清空 349 的答题记录、错题本、自评标记和打卡？此操作不可撤销。')) return;
+  Q.wipe(); if(C.TOOLS && C.TOOLS.refreshBadges) C.TOOLS.refreshBadges();
+  V.route(['master']);
 };
 
 /* ================= 收藏 ================= */
