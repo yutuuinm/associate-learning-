@@ -37,8 +37,97 @@ T.refreshBadges = function(){
   }
 };
 
-/* ================= 快捷键面板 ================= */
-T.kbd = function(){ var k=$('kbd'); if(k) k.style.display='flex' };
+/* ================= 快捷键面板（每行都能点着执行） ================= */
+/* fn 对应 ACT 表里的动作；没有 fn 的说明这一项本来就靠点界面完成 */
+T.KBD = [
+  { sec:'做题', items:[
+    {n:'选择选项', k:'1 2 3 4', tip:'选项直接点就行'},
+    {n:'上一题', k:'K', fn:'prev'},
+    {n:'下一题', k:'J', fn:'next'},
+    {n:'展开 / 收起本题解析', k:'E', fn:'reveal'},
+    {n:'定位到原文依据', k:'L', fn:'locate'},
+    {n:'整篇逐句翻译开关', k:'T', fn:'zh'},
+    {n:'提交本套', k:'Enter', fn:'submit'}
+  ]},
+  { sec:'划词', items:[
+    {n:'把选中的词收进生词本（自动带例句）', k:'S', fn:'word'},
+    {n:'翻译划选的整段', k:'R', fn:'tr'}
+  ]},
+  { sec:'349 带背', items:[
+    {n:'播放 / 暂停', k:'空格', fn:'rcPlay'},
+    {n:'上一条', k:'←', fn:'rcPrev'},
+    {n:'下一条', k:'→', fn:'rcNext'},
+    {n:'显示答案', k:'D', fn:'rcReveal'},
+    {n:'收藏本条', k:'F', fn:'rcStar'},
+    {n:'标 不会', k:'1', fn:'rcMark0'},
+    {n:'标 模糊', k:'2', fn:'rcMark1'},
+    {n:'标 会', k:'3', fn:'rcMark2'},
+    {n:'默写对答案', k:'Enter', fn:'rcCheck'}
+  ]},
+  { sec:'浮层', items:[
+    {n:'关闭这个面板', k:'Esc', fn:'close'},
+    {n:'打开这个面板', k:'?', fn:'open'}
+  ]}
+];
+var ACT = {
+  prev:  function(){ T.prev() },
+  next:  function(){ T.next() },
+  reveal:function(){ T.reveal() },
+  locate:function(){ T.locate(T.cur0()) },
+  zh:    function(){ T.toggleZh() },
+  submit:function(){ if(T.ctx && T.ctx.onGrade) T.ctx.onGrade() },
+  word:  function(){ T.addSel() },
+  tr:    function(){ T.translateSel() },
+  rcPlay:function(){ if(C.PHARMV) C.PHARMV.rcToggle() },
+  rcPrev:function(){ if(C.PHARMV) C.PHARMV.rcPrev() },
+  rcNext:function(){ if(C.PHARMV) C.PHARMV.rcNext() },
+  rcReveal:function(){ if(C.PHARMV) C.PHARMV.rcReveal() },
+  rcStar:function(){ if(C.PHARMV) C.PHARMV.rcStar() },
+  rcMark0:function(){ if(C.PHARMV) C.PHARMV.rcMark(0) },
+  rcMark1:function(){ if(C.PHARMV) C.PHARMV.rcMark(1) },
+  rcMark2:function(){ if(C.PHARMV) C.PHARMV.rcMark(2) },
+  rcCheck:function(){ if(C.PHARMV) C.PHARMV.rcCheck() },
+  close: function(){ T.kbdClose() },
+  open:  function(){ T.kbd() }
+};
+/* 哪些动作在当下真的能用 */
+function actOk(it){
+  var reciting = String(location.hash||'').indexOf('#/p/recite') === 0;
+  var rc = it.fn && it.fn.indexOf('rc') === 0;
+  if(rc) return reciting;
+  if(it.fn === 'close' || it.fn === 'open') return true;
+  if(it.fn === 'word' || it.fn === 'tr') return true;
+  return !!T.ctx;
+}
+T.runAct = function(name){
+  var f = ACT[name];
+  if(!f) return;
+  T.kbdClose();
+  try{ f() }catch(e){ T.toast('这个操作现在用不了') }
+};
+T.kbd = function(){
+  var k = $('kbd'), body = $('kbdBody');
+  if(!k) return;
+  if(body){
+    var h = '';
+    T.KBD.forEach(function(g){
+      var rows = g.items.filter(actOk);
+      if(!rows.length) return;
+      h += '<div class="ksec">' + C.esc(g.sec) + '</div>';
+      rows.forEach(function(it){
+        h += '<div class="kr"><span>' + C.esc(it.n) + '</span>';
+        h += '<span class="keys">';
+        String(it.k).split(' ').forEach(function(kk){ if(kk) h += '<kbd>' + C.esc(kk) + '</kbd>' });
+        h += '</span>';
+        if(it.fn) h += '<button class="sm" onclick="CET6.TOOLS.runAct(\'' + it.fn + '\')">执行</button>';
+        else h += '<span class="kbdim">' + C.esc(it.tip || '点界面即可') + '</span>';
+        h += '</div>';
+      });
+    });
+    body.innerHTML = h;
+  }
+  k.style.display = 'flex';
+};
 T.kbdClose = function(){ var k=$('kbd'); if(k) k.style.display='none' };
 document.addEventListener('click', function(){ T.kbdClose() });
 if($ && $('kbd')) $('kbd').addEventListener('click', function(){ T.kbdClose() });
@@ -85,6 +174,17 @@ T.go = function(idx){
 T.next = function(){ T.go(T.cur+1) };
 T.prev = function(){ T.go(T.cur-1) };
 
+/* 直接对某一题操作（题卡上的按钮用，不用先跳过去） */
+T.gotoQ = function(n){
+  if(!T.ctx) return false;
+  var idx = -1;
+  T.ctx.qs.forEach(function(q,i){ if(q.n === n) idx = i });
+  if(idx < 0) return false;
+  T.cur = idx; T.markCur();
+  return true;
+};
+T.revealN = function(n){ if(T.gotoQ(n)) T.reveal() };
+T.locateN = function(n){ if(T.gotoQ(n)) T.locate(n) };
 T.reveal = function(){
   if(!T.ctx) return;
   var n = T.cur0();
