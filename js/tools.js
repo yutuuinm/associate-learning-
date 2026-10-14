@@ -22,6 +22,19 @@ T.refreshBadges = function(){
   var s = C.STATS.srsCount();
   var d = $('cDue'); if(d){ d.textContent = s.due; d.style.display = s.due? '' : 'none' }
   var w = $('cWrong'); if(w){ w.textContent = C.STATS.wrongList().length; w.style.display = C.STATS.wrongList().length? '' : 'none' }
+  var pw = $('cPWrong'); if(pw && C.PHARMQ){
+    var n = C.PHARMQ.wrongCount();
+    pw.textContent = n; pw.style.display = n ? '' : 'none';
+  }
+  if(C.PHARMQ){
+    var pm = $('pMaster');
+    if(pm){
+      var m = C.PHARMQ.totalMaster();
+      pm.textContent = '掌握度 ' + (m == null ? '—' : m + ' · ' + C.PHARMQ.level(m).t);
+    }
+    var pwr = $('pWrong');
+    if(pwr) pwr.textContent = '错题 ' + C.PHARMQ.wrongCount();
+  }
 };
 
 /* ================= 快捷键面板 ================= */
