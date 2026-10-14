@@ -29,9 +29,11 @@ function dayAdd(s,n){ var d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n); r
 S.today = today;
 
 /* ---------- 答题记录 ---------- */
-S.log = function(kind, sid, qn, qtype, ok, pick, ms){
+/* hint: 这题用到了第几级提示（0 没用 / 1 方向 / 2 定位 / 3 答案） */
+S.log = function(kind, sid, qn, qtype, ok, pick, ms, hint){
   var a = C.get(K_LOG, []);
-  a.push({t:Date.now(), d:today(), kind:kind, sid:sid, qn:qn, type:qtype||'', ok:ok?1:0, pick:pick, ms:ms||0});
+  a.push({t:Date.now(), d:today(), kind:kind, sid:sid, qn:qn, type:qtype||'',
+          ok:ok?1:0, pick:pick, ms:ms||0, hint:hint||0});
   if(a.length>4000) a = a.slice(-3000);
   C.set(K_LOG, a);
   var dy = C.get(K_DAY, {});
@@ -59,6 +61,49 @@ function agg(list, key){
 S.byKind = function(){ return agg(S.logs(), 'kind') };
 S.byType = function(){ return agg(S.logs(), 'type') };
 S.tot = function(){ var l=S.logs(), o=0; l.forEach(function(r){o+=r.ok}); return {tot:l.length, ok:o, rate:l.length?o/l.length:0} };
+
+/* ---------- 提示依赖度：有多少分是靠提示拿的 ---------- */
+/* 返回：无提示正确率 / 用了提示的正确率 / 平均提示级别 / 各题型平均提示级别 */
+S.hintStat = function(){
+  var l = S.logs(), clean = {tot:0, ok:0}, helped = {tot:0, ok:0}, sum = 0, n = 0;
+  var byKind = {};
+  l.forEach(function(r){
+    var h = r.hint || 0;
+    var b = h > 0 ? helped : clean;
+    b.tot++; b.ok += r.ok;
+    sum += h; n++;
+    if(!byKind[r.kind]) byKind[r.kind] = {tot:0, sum:0};
+    byKind[r.kind].tot++; byKind[r.kind].sum += h;
+  });
+  Object.keys(byKind).forEach(function(k){
+    byKind[k].avg = byKind[k].tot ? byKind[k].sum/byKind[k].tot : 0;
+  });
+  return {
+    clean: {tot:clean.tot, ok:clean.ok, rate: clean.tot?clean.ok/clean.tot:null},
+    helped:{tot:helped.tot, ok:helped.ok, rate: helped.tot?helped.ok/helped.tot:null},
+    avg: n ? sum/n : 0,
+    byKind: byKind,
+    n: n
+  };
+};
+/* 自适应建议：连续做对就收紧提示，做不动就放宽 */
+S.advise = function(){
+  var l = S.logs();
+  if(l.length < 8) return null;
+  var dis = C.get('cet6_advisedismiss', -1);
+  if(dis >= 0 && (l.length - dis) < 8) return null;   /* 刚被"不用"过，别反复弹 */
+  var recent = l.slice(-12);
+  var clean = recent.filter(function(r){ return !(r.hint > 0) });
+  if(clean.length < 4) return null;
+  var ok = 0; clean.forEach(function(r){ ok += r.ok });
+  var rate = ok / clean.length;
+  var cur = (C.settings && C.settings.assist != null) ? C.settings.assist : 2;
+  if(rate >= 0.8 && cur > 0) return {act:'down', to:Math.max(0, cur-1), rate:rate,
+    why:'最近没看提示也做对了 '+Math.round(rate*100)+'%，可以收紧到「'+['模拟考试','轻 · 方向','中 · 定位','强 · 全开'][Math.max(0,cur-1)]+'」逼自己一把。'};
+  if(rate <= 0.45 && cur < 3) return {act:'up', to:Math.min(3, cur+1), rate:rate,
+    why:'最近无提示正确率只有 '+Math.round(rate*100)+'%，先放宽到「'+['模拟考试','轻 · 方向','中 · 定位','强 · 全开'][Math.min(3,cur+1)]+'」把方法学会，再收紧。'};
+  return null;
+};
 
 /* ---------- 六级得分预估 ---------- */
 /* 有数据的题型用真实正确率；没数据的用总体正确率兜底（并标记为"未测"） */
@@ -120,13 +165,36 @@ S.wrongClear = function(sid){ C.set(K_WRONG, C.get(K_WRONG,[]).filter(function(x
 
 /* ---------- SRS 生词本（SM-2 简化） ---------- */
 S.srsAll = function(){ return C.get(K_SRS, {}) };
-S.srsAdd = function(w, def, ctx){
+/* ctx 例句原文 / cz 例句译文 / src 来源（哪篇哪套） / hl 例句中要高亮的词形 */
+S.srsAdd = function(w, def, ctx, cz, src, hl){
   var m = S.srsAll(), k = String(w||'').toLowerCase().replace(/[^a-z-]/g,'');
   if(!k) return false;
-  if(m[k]){ if(ctx && !m[k].c) m[k].c = ctx; return false }
-  m[k] = {w:String(w).toLowerCase(), d:def||'', c:ctx||'', ef:2.5, iv:1, rep:0, due:today(), add:Date.now()};
+  if(m[k]){
+    var it0 = m[k], ch = false;
+    if(ctx && !it0.c){ it0.c = ctx; ch = true }
+    if(cz  && !it0.cz){ it0.cz = cz; ch = true }
+    if(src && !it0.src){ it0.src = src; ch = true }
+    if(hl  && !it0.hl){ it0.hl = hl; ch = true }
+    if(def && !it0.d){ it0.d = def; ch = true }
+    if(ch) C.set(K_SRS, m);
+    return false;
+  }
+  m[k] = {w:String(w).toLowerCase(), d:def||'', c:ctx||'', cz:cz||'', src:src||'', hl:hl||'',
+          ef:2.5, iv:1, rep:0, due:today(), add:Date.now()};
   C.set(K_SRS, m);
   return true;
+};
+/* 补例句（词已在生词本里但没例句时覆盖写入） */
+S.srsSetCtx = function(w, ctx, cz, src, hl){
+  var m = S.srsAll(), k = String(w||'').toLowerCase().replace(/[^a-z-]/g,'');
+  var it = m[k]; if(!it) return false;
+  if(ctx){ it.c = ctx; it.cz = cz||''; it.src = src||''; it.hl = hl||'' }
+  C.set(K_SRS, m);
+  return true;
+};
+S.srsHasCtx = function(w){
+  var m = S.srsAll(), k = String(w||'').toLowerCase().replace(/[^a-z-]/g,'');
+  return !!(m[k] && m[k].c);
 };
 S.srsDel = function(k){ var m=S.srsAll(); delete m[k]; C.set(K_SRS,m) };
 S.srsDue = function(){
