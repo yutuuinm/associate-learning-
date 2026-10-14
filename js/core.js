@@ -68,6 +68,13 @@ C.aiDefine=async function(word, ctx){
   return out;
 };
 
+/* 整段翻译：没有内置译文时的兜底 */
+C.aiTranslate = async function(text){
+  var out = await C.aiChat('你是大学英语六级考试的翻译助手。把下面这段英文翻成通顺的中文。' +
+    '要求：忠实原文、语序自然、专有名词保留英文。只输出译文，不要任何说明、不要加标题。\n\n' + text, 900);
+  return out;
+};
+
 /* ---------- 可划词 HTML ---------- */
 C.words=function(text){
   return C.esc(text).replace(/([A-Za-z][A-Za-z'-]*)/g,function(m){
@@ -78,6 +85,23 @@ C.sentHTML=function(en,zh){
   return '<span class="s" data-t="'+C.esc(zh)+'">'+C.words(en)+'</span> ';
 };
 
+/* ---------- 取词所在的句子（原文 + 译文） ---------- */
+/* node 是 .w 或任意节点，往上找最近的 .s[data-t] */
+C.sentOf=function(node){
+  var s = node && node.closest ? node.closest('.s[data-t]') : null;
+  if(!s) return null;
+  return {en:String(s.textContent||'').trim(), zh:s.getAttribute('data-t')||''};
+};
+/* 当前页面的来源标签（哪篇/哪套），写进生词本例句里 */
+C.srcLabel=function(){
+  var h = String(location.hash||'');
+  var m = h.match(/#\/(read|listen|match|cloze)\/([^/?]+)/);
+  if(m) return (m[1]==='read'?'仔细阅读':m[1]==='listen'?'听力':m[1]==='match'?'长篇匹配':'选词填空') + ' ' + m[2];
+  var p = h.match(/#\/p\/(note|recite|bank|mech)\/?(.*)/);
+  if(p) return '349 ' + (p[1]||'') + (p[2]?('/'+p[2]):'');
+  return '';
+};
+
 /* ---------- 划词提示引擎（全局委托） ---------- */
 var lastWord=null;
 document.addEventListener('mouseover',function(e){
@@ -86,6 +110,7 @@ document.addEventListener('mouseover',function(e){
   if(!t||!t.classList) return;
   if(t.classList.contains('w')){
     C.lastWord = String(t.textContent||'').toLowerCase().replace(/[^a-z-]/g,'');
+    C.lastWordNode = t;
     var def=C.lookup(t.textContent);
     var tipEl=C.$('tip'); if(!tipEl) return;
     if(def){
@@ -128,6 +153,52 @@ C.showTip=function(el,word,def,tag,e){
   if(y+90>window.innerHeight) y=window.innerHeight-100;
   el.style.left=x+'px'; el.style.top=y+'px';
 };
+
+/* ---------- 划选工具条（收词 / 翻译 / 复制） ---------- */
+var SEL_CLEAN_WORD = /^[A-Za-z][A-Za-z'-]*$/;
+C._sel = null;
+C.hideSelBar = function(){
+  var b = C.$('selbar'); if(b) b.style.display = 'none';
+  C._sel = null;
+};
+document.addEventListener('mouseup', function(e){
+  /* 点工具条自己时不处理 */
+  if(e && e.target && e.target.closest && e.target.closest('#selbar')) return;
+  setTimeout(function(){
+    var s = window.getSelection && window.getSelection();
+    var txt = s ? String(s.toString()||'').replace(/\s+/g,' ').trim() : '';
+    var bar = C.$('selbar');
+    if(!bar) return;
+    if(!txt || txt.length < 1){ C.hideSelBar(); return }
+    var r = null;
+    try{ r = s.getRangeAt(0).getBoundingClientRect() }catch(err){ r = null }
+    if(!r || (!r.width && !r.height)){ C.hideSelBar(); return }
+    var one = SEL_CLEAN_WORD.test(txt);
+    C._sel = {
+      txt: txt,
+      one: one,
+      word: one ? txt.toLowerCase().replace(/[^a-z-]/g,'') : '',
+      en: /[A-Za-z]/.test(txt),
+      node: (s.anchorNode && s.anchorNode.nodeType === 1) ? s.anchorNode : (s.anchorNode ? s.anchorNode.parentNode : null)
+    };
+    bar.style.display = 'flex';
+    var bw = bar.querySelector('[data-a="word"]');
+    if(bw) bw.style.display = (one && C._sel.word.length > 1) ? '' : 'none';
+    var x = r.left + r.width/2, y = r.top;
+    if(y < 60) y = r.bottom + 8;                       // 选区太靠上就挂下面
+    bar.style.left = Math.max(70, Math.min(window.innerWidth - 70, x)) + 'px';
+    bar.style.top = y + 'px';
+  }, 5);
+});
+document.addEventListener('mousedown', function(e){
+  if(e && e.target && e.target.closest && e.target.closest('#selbar')) return;  /* 别清掉选区 */
+  var bar = C.$('selbar');
+  if(bar && bar.style.display !== 'none' && e && e.target && e.target.closest && !e.target.closest('#selbar')){
+    /* 延迟到 mouseup 再决定，这里先不动 */
+  }
+});
+/* 滚动或翻页时收起 */
+document.addEventListener('scroll', function(){ C.hideSelBar() }, true);
 
 /* ---------- 辅助提示：题型标签与解题口诀 ---------- */
 C.TYPE={
