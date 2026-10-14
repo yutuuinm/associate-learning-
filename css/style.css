@@ -363,6 +363,44 @@ pre{background:#F7F9FC;border:1px solid var(--line2);padding:12px;border-radius:
 }
 #trans .lbl{font-size:11px;color:var(--brand);font-weight:600;margin-bottom:2px;letter-spacing:.04em}
 #trans .empty{color:var(--mut2);font-size:13px}
+#trans #tt{max-height:34vh;overflow:auto}
+#trans.on{box-shadow:0 -4px 20px rgba(16,24,40,.10)}
+
+/* 按需逐级提示的按钮 */
+.hintbtn{margin-top:6px}
+.hintbtn .sm{font-size:12px;padding:4px 10px;color:var(--brand);border-color:var(--brand-b)}
+
+/* 划选浮动工具条 */
+#selbar{
+  position:fixed;z-index:320;transform:translate(-50%,-100%);display:none;gap:2px;
+  background:#111827;border-radius:9px;padding:3px;box-shadow:0 6px 20px rgba(0,0,0,.22);align-items:center;
+}
+#selbar::after{
+  content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#111827;border-bottom:0;
+}
+#selbar button{
+  border:0;background:transparent;color:#E5E7EB;font-size:12.5px;font-family:inherit;
+  padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;line-height:1.4;
+}
+#selbar button:hover{background:#374151;color:#fff}
+#selbar button[data-a="x"]{color:#9CA3AF;padding:5px 8px}
+
+/* 整段翻译：逐句对照 */
+.selhd{font-size:11.5px;color:var(--brand);font-weight:600;margin-bottom:6px;letter-spacing:.03em}
+.selpairs{display:flex;flex-direction:column;gap:8px}
+.selp{border-left:2px solid var(--line);padding:2px 0 2px 10px}
+.selp .se{font-size:13.5px;color:var(--ink);line-height:1.65}
+.selp .sz{font-size:13.5px;color:var(--ink2);line-height:1.7;margin-top:2px}
+.selp .sz.mut{color:var(--mut2);font-size:12.5px}
+
+/* 生词本例句 */
+.fctx{margin-top:8px}
+.exrow td{background:var(--bg2);border-top:0 !important}
+.exen{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.exen mark{background:#FEF08A;color:inherit;padding:0 2px;border-radius:2px;font-weight:600}
+.exzh{font-size:13px;line-height:1.7;color:var(--ink2);margin-top:4px}
+.exsrc{font-size:11.5px;color:var(--mut2);margin-top:4px}
 
 /* 快捷键面板 */
 #kbd{position:fixed;inset:0;z-index:400;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:20px}
