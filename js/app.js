@@ -245,7 +245,8 @@ function renderAssess(){
     h+='<div class="center"><div class="wt">'+esc(w.w)+'<small>'+(w.band?'（'+w.label+'）':'')+'</small></div>';
     h+='<button class="big" onclick="CET6.vt(1)">认识</button> ';
     h+='<button class="big" onclick="CET6.vt(0)">不认识</button>';
-    h+='<p class="hint center" style="margin-top:14px">键盘：<kbd>←</kbd> 认识　<kbd>→</kbd> 不认识　<kbd>S</kbd> 收进生词本</p></div>';
+    h+='<div style="margin-top:10px"><button class="sm" title="收进生词本（S）" onclick="CET6.vtAdd()">收进生词本</button></div>';
+    h+='<p class="hint center" style="margin-top:14px">键盘：<kbd>←</kbd> 认识　<kbd>→</kbd> 不认识　<kbd>S</kbd> 收词</p></div>';
   }
   $('app').innerHTML=h;
 }
@@ -448,7 +449,11 @@ function qBlock(q,pfx){
   var showHint = C.settings.assist>0;
   var h='<div class="q" id="qw_'+pfx+q.n+'">';
   h+='<div class="qhead"><span class="qno" id="qn_'+pfx+q.n+'">'+q.n+'</span>';
-  h+='<div class="qtext">'+(showHint&&q.type?'<span class="qbadge k-'+q.type+'">'+C.TYPE[q.type].n+'</span>':'')+richHTML(q.q,true,false)+'</div></div>';
+  h+='<div class="qtext">'+(showHint&&q.type?'<span class="qbadge k-'+q.type+'">'+C.TYPE[q.type].n+'</span>':'')+richHTML(q.q,true,false)+'</div>';
+  h+='<div class="qacts">';
+  h+='<button class="sm" title="展开/收起本题解析（E）" onclick="CET6.TOOLS.revealN('+q.n+')">解析</button>';
+  h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locateN('+q.n+')">定位</button>';
+  h+='</div></div>';
   h+='<div id="hint_'+pfx+q.n+'">'+T.assistHTML(q)+'</div>';
   h+='<div class="opts">';
   q.o.forEach(function(o,i){
@@ -461,7 +466,13 @@ function pbarHTML(cfg){
   var h='<div class="pbar"><span class="tm" id="tm">0:00</span>';
   h+='<span class="hint" id="pg">已答 0 / '+cfg.qs.length+'</span>';
   h+='<span class="sp" style="flex:1"></span>';
-  h+='<button class="sm" onclick="CET6.TOOLS.toggleZh()">逐句翻译 <kbd>T</kbd></button>';
+  h+='<button class="sm" title="上一题（K）" onclick="CET6.TOOLS.prev()">‹ 上题</button>';
+  h+='<button class="sm" title="下一题（J）" onclick="CET6.TOOLS.next()">下题 ›</button>';
+  h+='<button class="sm" title="展开/收起本题解析（E）" onclick="CET6.TOOLS.reveal()">解析</button>';
+  h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locate(CET6.TOOLS.cur0())">定位原文</button>';
+  h+='<button class="sm" title="整篇逐句翻译（T）" onclick="CET6.TOOLS.toggleZh()">逐句翻译</button>';
+  h+='<button class="sm" title="把选中的词收进生词本（S）" onclick="CET6.TOOLS.addSel()">收词</button>';
+  h+='<button class="sm" title="翻译划选的整段（R）" onclick="CET6.TOOLS.translateSel()">译选中</button>';
   h+='<button class="sm" onclick="CET6.TOOLS.kbd()">快捷键 <kbd>?</kbd></button>';
   h+='<button class="sm" onclick="CET6.clearAns()">清空</button></div>';
   return h;
@@ -764,6 +775,9 @@ function renderCloze(id){
   CS={c:c,ans:{}};
   var h='<div class="pbar"><span class="tm" id="tm">0:00</span><span class="hint">整套只值 35.5 分，考场上留最后 5 分钟</span>';
   h+='<span class="sp" style="flex:1"></span>';
+  h+='<button class="sm" title="把选中的词收进生词本（S）" onclick="CET6.TOOLS.addSel()">收词</button>';
+  h+='<button class="sm" title="翻译划选的整段（R）" onclick="CET6.TOOLS.translateSel()">译选中</button>';
+  h+='<button class="sm" onclick="CET6.clozeClear()">清空</button>';
   h+='<button class="sm" onclick="CET6.TOOLS.kbd()">快捷键 <kbd>?</kbd></button></div>';
   h+='<div class="card"><h1>'+esc(c.title)+' <span class="pill">选词填空</span> <span class="pill a">10 题 × 3.55 分</span></h1>';
   h+='<p class="sub">'+esc(c.note||'')+'</p>';
@@ -789,6 +803,13 @@ function renderCloze(id){
   T.startTimer(300);
 }
 C.clozePick=function(n,v){ CS.ans[n]=v };
+C.clozeClear=function(){
+  if(!CS.c) return;
+  CS.ans={};
+  var ss=document.querySelectorAll('#app select');
+  for(var i=0;i<ss.length;i++) ss[i].value='';
+  T.toast('已清空答案');
+};
 C.gradeCloze=function(){
   var el=T.elapsed(); T.stopTimer();
   var c=CS.c, ok=0, rows='';
