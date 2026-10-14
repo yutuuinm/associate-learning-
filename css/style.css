@@ -228,6 +228,9 @@ button svg,.btn svg{width:14px;height:14px}
 .qbadge.k-meaning{background:#FFF1F2;color:#9F1239}
 .qbadge.k-attitude{background:var(--wnbg);color:var(--wn)}
 .qbadge.k-infer{background:var(--okbg);color:var(--ok)}
+.qacts{display:flex;gap:6px;flex-shrink:0}
+.qacts .sm{padding:2px 9px;font-size:11.5px;color:var(--mut)}
+.qacts .sm:hover{color:var(--brand);border-color:var(--brand-b)}
 
 .opts{display:flex;flex-direction:column;gap:6px;margin-top:9px}
 .opt{
@@ -408,7 +411,11 @@ pre{background:#F7F9FC;border:1px solid var(--line2);padding:12px;border-radius:
 #kbd h3{margin-bottom:12px}
 #kbd .kr{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--line2);font-size:13.5px}
 #kbd .kr:last-child{border-bottom:0}
-#kbd .kr .keys{margin-left:auto;display:flex;gap:4px}
+#kbd .kr .keys{display:flex;gap:4px;margin-left:auto}
+#kbd .kr .sm{margin-left:10px;padding:2px 9px;font-size:11.5px}
+#kbd .kr .kbdim{margin-left:10px;font-size:11.5px;color:var(--mut2)}
+#kbd .ksec{font-size:11px;color:var(--mut);font-weight:600;letter-spacing:.05em;margin:12px 0 2px}
+#kbd .ksec:first-child{margin-top:0}
 kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink2)}
 
 /* Toast */
