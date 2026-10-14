@@ -27,6 +27,7 @@ C.applyExam = function(){
   if(tp) tp.style.display = k==='pharm'?'':'none';
   var sub=$('sideSub');
   if(sub) sub.textContent = k==='pharm' ? '349 · 有机/分析/生化' : '目标 425 · 12 月 12 日';
+  if(C.TOOLS && C.TOOLS.refreshBadges) C.TOOLS.refreshBadges();
 };
 C.setExam = function(k){
   C.exam = k; set('cet6_exam', k);
