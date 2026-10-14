@@ -403,6 +403,30 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
 .hotbar i{width:3px;height:9px;border-radius:1px;background:#DDE3EB;display:block}
 .hotbar i.on{background:#E11D48}
 
+/* 掌握度条 */
+.mbar{display:inline-flex;align-items:center;gap:7px;vertical-align:middle}
+.mbar .tr{width:74px;height:6px;border-radius:3px;background:#E8EDF4;overflow:hidden;display:block}
+.mbar .tr i{display:block;height:100%;border-radius:3px;background:var(--brand)}
+.mbar.g .tr i{background:var(--ok)}
+.mbar.b .tr i{background:var(--brand)}
+.mbar.y .tr i{background:var(--wn)}
+.mbar.r .tr i{background:var(--er)}
+.mbar .mv{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;min-width:28px}
+.mrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mrow .mbn{flex:1;min-width:150px}
+.mkseg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r3);overflow:hidden}
+.mkseg button{
+  border:0;background:#fff;padding:3px 9px;font-size:12px;cursor:pointer;color:var(--mut);
+  font-family:inherit;border-right:1px solid var(--line);
+}
+.mkseg button:last-child{border-right:0}
+.mkseg button:hover{background:var(--bg2)}
+.mkseg button.on{background:var(--brand);color:#fff}
+.mkseg button.on.no{background:var(--er);color:#fff}
+.mkseg button.on.mid{background:var(--wn);color:#fff}
+.mkseg button.on.yes{background:var(--ok);color:#fff}
+.wrt textarea{width:100%;min-height:66px;font-size:14px;line-height:1.7}
+
 /* 课程卡 */
 .course{
   border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;background:#fff;cursor:pointer;transition:.12s;
