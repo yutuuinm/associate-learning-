@@ -449,7 +449,7 @@ function qBlock(q,pfx){
   var h='<div class="q" id="qw_'+pfx+q.n+'">';
   h+='<div class="qhead"><span class="qno" id="qn_'+pfx+q.n+'">'+q.n+'</span>';
   h+='<div class="qtext">'+(showHint&&q.type?'<span class="qbadge k-'+q.type+'">'+C.TYPE[q.type].n+'</span>':'')+richHTML(q.q,true,false)+'</div></div>';
-  h+=T.assistHTML(q);
+  h+='<div id="hint_'+pfx+q.n+'">'+T.assistHTML(q)+'</div>';
   h+='<div class="opts">';
   q.o.forEach(function(o,i){
     h+='<div class="opt" data-n="'+q.n+'" data-i="'+i+'"><span class="k">'+letter(i)+'</span><span>'+richHTML(o,false,showHint)+'</span><span class="kb">'+(i+1)+'</span></div>';
@@ -466,10 +466,23 @@ function pbarHTML(cfg){
   h+='<button class="sm" onclick="CET6.clearAns()">清空</button></div>';
   return h;
 }
+var ASSIST_NM=['模拟考试','轻 · 方向','中 · 定位','强 · 全开'];
+function adviseHTML(ad){
+  return '<div class="card acc"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+    '<b style="flex:1;min-width:200px">建议把辅助提示调到「'+ASSIST_NM[ad.to]+'」</b>'+
+    '<button class="sm primary" onclick="CET6.applyAdvise('+ad.to+')">照做</button>'+
+    '<button class="sm" onclick="CET6.dismissAdvise()">先不用</button></div>'+
+    '<div class="hint" style="margin-top:6px">'+esc(ad.why)+'</div></div>';
+}
+C.applyAdvise=function(v){ C.setAssist(v); T.toast('已切到「'+ASSIST_NM[v]+'」') };
+C.dismissAdvise=function(){ C.set('cet6_advisedismiss', S.logs().length); route() };
+
 function practice(cfg){
   P={cfg:cfg, ans:{}, done:false};
   T.stopTimer();
   var h=pbarHTML(cfg);
+  var ad=S.advise();
+  if(ad) h+=adviseHTML(ad);
   h+=cfg.two ? '<div class="prac"><div class="col-l">'+cfg.left+'</div><div class="col-r">' : '<div>';
   h+='<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0;flex:1">Questions</h2>'+(cfg.note||'')+'</div>';
   h+='<p class="hint" style="margin:6px 0 0">题干里 <span class="eyew">红色</span> 是题眼（决定题型）；选项里 <span class="abs">波浪线</span> 是绝对化词，通常可以先排除。按 <kbd>E</kbd> 逐层看解析。</p>';
@@ -544,7 +557,8 @@ C.grade=function(){
   cfg.qs.forEach(function(q){
     var got=P.ans[q.n], right=(got===q.a);
     if(right) ok++;
-    S.log(cfg.kind, cfg.sid, q.n, q.type||'', right, got==null?-1:got, per);
+    /* 记下这题用了几级提示——"靠提示做对"和"自己会"是两回事 */
+    S.log(cfg.kind, cfg.sid, q.n, q.type||'', right, got==null?-1:got, per, T.hintOf ? T.hintOf(q.n) : 0);
     var e2=$('ex_'+cfg.pfx+q.n);
     if(e2){
       e2.innerHTML=T.expHTML(q,got);
@@ -565,6 +579,19 @@ C.grade=function(){
     '别先盯正确率。逐题判断你是<b>定位错了</b>、<b>句子没拆开</b>还是<b>词汇卡住</b>：三类的补法完全不同。')+'</p>';
   var est=S.estimate();
   if(est.score!=null) h+='<div class="hint" style="margin-top:8px">当前六级预估：<b>'+est.score+' 分</b>（客观题 '+est.obj+' + 写译按 '+est.write+' 估）</div>';
+  /* 提示依赖度：靠提示拿到的分不算数 */
+  var used=0, usedOk=0;
+  cfg.qs.forEach(function(q){
+    var lv=T.hintOf?T.hintOf(q.n):0;
+    if(lv>0){ used++; if(P.ans[q.n]===q.a) usedOk++ }
+  });
+  if(used){
+    var cleanN=cfg.qs.length-used, cleanOk=ok-usedOk;
+    h+='<div class="assist" style="margin-top:10px"><b>提示依赖</b><br>这 ' + used + ' 题你开了提示' +
+       (usedOk?('，其中 '+usedOk+' 题做对——这几题的分<b>不算真会</b>，明天不开提示再做一遍才算过。'):'，而且都没做对——这类题先回原文把句子拆开，别急着做下一套。');
+    if(cleanN) h+='<br>剩下 '+cleanN+' 题没看提示，做对 '+cleanOk+' 题（' + pct(cleanN?cleanOk/cleanN:0) + '%），这个数才是你的真实水平。';
+    h+='</div>';
+  }
   h+='</div><div style="display:flex;flex-direction:column;gap:8px">';
   h+='<button class="sm" onclick="location.reload()">重做这套</button>';
   h+='<button class="sm" onclick="location.href=\'#/wrong\'">看错题本</button>';
@@ -605,11 +632,11 @@ function renderRead(id){
   if(!r){ var im=get('cet6_imported',[]); im.forEach(function(x){ if(x.id===id&&x.type==='reading') r=x }) }
   if(!r){ $('app').innerHTML='<div class="card"><div class="empty-st"><p>找不到这篇文章。</p><button class="primary" onclick="location.href=\'#/bank\'">回题库</button></div></div>'; return }
   var qs=r.qs;
-  if(C.redo){
+  if(C.redoOnly){
     var wn=S.wrongList().filter(function(w){ return w.sid===r.id }).map(function(w){ return w.qn });
     qs=qs.filter(function(q){ return wn.indexOf(q.n)>=0 });
     if(!qs.length) qs=r.qs;
-    C.redo=null;
+    C.redoOnly=null;
   }
   var left='<div class="card"><h2 style="margin-bottom:10px">'+esc(r.title)+'</h2>';
   left+='<p class="hint" style="margin-bottom:10px">'+(r.words?r.words+' 词 · ':'')+qs.length+' 题 · 建议 '+(qs.length*2)+' 分钟内做完</p>';
@@ -633,11 +660,11 @@ function renderListen(id){
   B.listening.forEach(function(x){ if(x.id===id) g=x });
   if(!g){ $('app').innerHTML='<div class="card"><div class="empty-st"><p>找不到这段听力。</p><button class="primary" onclick="location.href=\'#/bank\'">回题库</button></div></div>'; return }
   var qs=g.qs;
-  if(C.redo){
+  if(C.redoOnly){
     var wn=S.wrongList().filter(function(w){ return w.sid===g.id }).map(function(w){ return w.qn });
     qs=qs.filter(function(q){ return wn.indexOf(q.n)>=0 });
     if(!qs.length) qs=g.qs;
-    C.redo=null;
+    C.redoOnly=null;
   }
   var st = LST[id] || (LST[id]={show:false, played:false});
   LS={g:g, played:st.played, show:st.show, rate:1};
@@ -712,11 +739,11 @@ function renderMatch(id){
       trap:['干扰项是"话题相关但没有这个细节"的段落。只有题干里的独特名词能帮你确认。','另外有一段是不会被选中的，别硬凑。'],
       l2:'先划出题干里别的段落没有的独特名词，再回头扫段落。',guess:'把题干拆成 2–3 个"只有某段才会有"的关键词，然后逐段扫。扫不到就先跳过，做完剩下的再回来。'};
   });
-  if(C.redo){
+  if(C.redoOnly){
     var wn=S.wrongList().filter(function(w){ return w.sid===m.id }).map(function(w){ return w.qn });
     var f=qs.filter(function(q){ return wn.indexOf(q.n)>=0 });
     if(f.length) qs=f;
-    C.redo=null;
+    C.redoOnly=null;
   }
   var left='<div class="card"><h2 style="margin-bottom:8px">'+esc(m.title)+'</h2>';
   left+='<span class="pill">长篇匹配</span> <span class="pill a">10 题 × 7.1 分</span>';
@@ -781,7 +808,7 @@ C.gradeCloze=function(){
 };
 
 /* ================= 生词速记 ================= */
-var VC={i:0, show:false, list:[]};
+var VC={i:0, show:false, list:[], ex:{}};
 function renderVocab(){
   var due=S.srsDue(), all=S.srsAll();
   var h='';
@@ -795,7 +822,9 @@ function renderVocab(){
     h+='<p class="sub" style="margin-top:8px">先看词，回忆意思，再点开核对。<b>想不起来就点「忘了」</b>——诚实比假装记住有用。</p>';
     h+='<div class="fc'+(VC.show?'':' hide')+'" onclick="CET6.vcShow()" id="fc">';
     h+='<div class="fw">'+esc(it.w)+'</div>';
-    if(it.c) h+='<div class="fctx">'+esc(it.c)+'</div>';
+    if(it.c){
+      h+='<div class="fctx">'+T.ctxHTML(it)+'</div>';
+    }
     h+='<div class="fd">'+(it.d?esc(it.d):'<span style="color:var(--mut2)">（还没释义，点下面"补全释义"）</span>')+'</div>';
     h+='</div>';
     h+='<div class="center" style="margin:14px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">';
@@ -824,6 +853,7 @@ function renderVocab(){
   /* 词表 */
   var ks=Object.keys(all);
   h+='<div class="card"><h3>生词本（'+ks.length+' 个）</h3>';
+  h+='<p class="hint" style="margin:0 0 8px">做阅读时<b>划选生词</b>按 <kbd>S</kbd> 或点浮动条的「收词」，会自动把<b>那句话</b>存成例句。点「例句」展开看原文（词已高亮）和译文。</p>';
   if(!ks.length){
     h+='<p class="sub" style="margin:0">空空如也。做阅读时选中生词按 <kbd>S</kbd>，或在这里手动加。</p>';
   }else{
@@ -833,13 +863,18 @@ function renderVocab(){
       var it=all[k];
       h+='<tr><td class="w">'+esc(it.w)+'</td><td>'+esc(it.d||'—')+'</td>';
       h+='<td class="n">'+(it.rep||0)+'</td><td class="n">'+esc(it.due)+'</td>';
-      h+='<td class="n"><button class="sm danger" onclick="CET6.vcDel(\''+k+'\')">删</button></td></tr>';
+      h+='<td class="n">'+(it.c?'<button class="sm" onclick="CET6.vcEx(\''+k+'\')">例句</button> ':'')+
+         '<button class="sm danger" onclick="CET6.vcDel(\''+k+'\')">删</button></td></tr>';
+      if(VC.ex[k] && it.c){
+        h+='<tr class="exrow"><td colspan="5">'+T.ctxHTML(it)+'</td></tr>';
+      }
     });
     h+='</tbody></table>';
   }
   h+='</div>';
   $('app').innerHTML=h;
 }
+C.vcEx=function(k){ VC.ex[k]=!VC.ex[k]; renderVocab() };
 C.vcShow=function(){ VC.show=true; renderVocab() };
 C.vcRate=function(g){
   var it=VC.list[Math.min(VC.i,VC.list.length-1)];
@@ -915,7 +950,10 @@ function setMeta(sid){
   return {title:t, kindName:kindName||sid, href:href};
 }
 C.redo=function(sid,href){
-  C.redo=sid;
+  C.redoOnly=sid;
+  /* 重做错题时自动把提示开到「中 · 定位」——错题是用来学会的，不是用来再考一次的。
+     只在你当前档位低于 2 时才提，不覆盖你主动调高的设置。 */
+  if((C.settings.assist||0) < 2){ C.settings.assist=2; C.saveSettings(); T.toast('错题重做：辅助提示已开到「中 · 定位」') }
   if(location.hash===href) route(); else location.href=href;
 };
 C.wrongClear=function(sid){ S.wrongClear(sid); route(); T.refreshBadges() };
@@ -945,6 +983,31 @@ function renderStats(){
   h+='<div class="mc"><div class="l">今日</div><div class="v">'+S.day().q+'</div><div class="u">目标 '+S.goal()+'</div></div>';
   h+='<div class="mc"><div class="l">连续打卡</div><div class="v">'+S.streak()+'</div><div class="u">天</div></div>';
   h+='</div></div>';
+
+  /* 提示依赖度：有多少分是靠提示拿的 */
+  var hs=S.hintStat();
+  if(hs.n){
+    h+='<div class="card"><h3>提示依赖度</h3>';
+    h+='<p class="sub" style="margin-top:0">开了提示才做对的题，<b>不属于你的真实水平</b>。这个数越低越好。</p>';
+    h+='<div class="grid" style="margin-top:12px">';
+    h+='<div class="mc"><div class="l">没看提示的正确率</div><div class="v">'+
+       (hs.clean.rate==null?'—':pct(hs.clean.rate)+'%')+'</div><div class="u">'+hs.clean.tot+' 题</div></div>';
+    h+='<div class="mc"><div class="l">开了提示的正确率</div><div class="v">'+
+       (hs.helped.rate==null?'—':pct(hs.helped.rate)+'%')+'</div><div class="u">'+hs.helped.tot+' 题</div></div>';
+    h+='<div class="mc"><div class="l">平均提示级别</div><div class="v">'+hs.avg.toFixed(2)+'</div><div class="u">0 完全没用　3 全开</div></div>';
+    h+='</div>';
+    if(hs.clean.rate!=null && hs.helped.rate!=null && hs.helped.tot>=3){
+      var d=hs.helped.rate-hs.clean.rate;
+      h+='<div class="assist" style="margin-top:12px"><b>怎么读这个数</b><br>';
+      h+= d>0.25
+        ? ('开提示后正确率提高了 '+pct(d)+' 个百分点，说明你<b>方法还没内化</b>——现在靠提示能懂，不代表考场上能想起来。这几类题要回到原文把依据句划出来，隔天不开提示重做。')
+        : ('开提示和不开提示的正确率差不多（差 '+pct(Math.abs(d))+' 个点），说明你的问题<b>不在方法而在基本功</b>——多半是句子没拆开或词汇卡住，提示帮不上忙。');
+      h+='</div>';
+    }
+    var ad=S.advise();
+    if(ad) h+=adviseHTML(ad);
+    h+='</div>';
+  }
 
   /* 题型分解 */
   h+='<div class="card"><h3>分丢在哪（按真题分值折算）</h3>';
