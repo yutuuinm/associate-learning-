@@ -48,6 +48,9 @@
       <a href="#/p/recite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>带背<span class="cnt" id="cRecite">▶</span></a>
       <a href="#/p/mech"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h6M14 18h6"/><path d="M7 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM17 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M10 15c3-1 3-5 4-7"/></svg>反应机理</a>
       <a href="#/p/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>常考题</a>
+      <div class="grp">效率工具</div>
+      <a href="#/p/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cPWrong">0</span></a>
+      <a href="#/p/master"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>掌握度</a>
       <a href="#/p/star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>我的收藏</a>
       <div class="grp">数据来源</div>
       <a href="#/p/about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg>考试说明</a>
@@ -86,6 +89,8 @@
       </div>
       <div id="topPharm" class="toptools" style="display:none">
         <span class="pill n" id="pExam">349 · 300 分</span>
+        <span class="pill" id="pMaster" title="掌握度">掌握度 —</span>
+        <a class="pill" href="#/p/wrong" id="pWrong" title="错题本" style="text-decoration:none">错题 0</a>
       </div>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
     </header>
@@ -115,6 +120,8 @@
     <div class="kr"><span>带背：上一条 / 下一条</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></div>
     <div class="kr"><span>带背：显示答案</span><span class="keys"><kbd>D</kbd></span></div>
     <div class="kr"><span>带背：收藏本条</span><span class="keys"><kbd>F</kbd></span></div>
+    <div class="kr"><span>带背：标 不会/模糊/会</span><span class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span></div>
+    <div class="kr"><span>带背：默写对答案</span><span class="keys"><kbd>Enter</kbd></span></div>
     <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
     <div class="kr"><span>关闭浮层</span><span class="keys"><kbd>Esc</kbd></span></div>
     <div class="kr"><span>打开这个面板</span><span class="keys"><kbd>?</kbd></span></div>
@@ -132,9 +139,11 @@
 <script src="js/import.js"></script>
 <script src="js/pharm-org1.js"></script>
 <script src="js/pharm-org2.js"></script>
+<script src="js/pharm-org3.js"></script>
 <script src="js/pharm-ana.js"></script>
 <script src="js/pharm-bio.js"></script>
 <script src="js/recite.js"></script>
+<script src="js/pharm-stat.js"></script>
 <script src="js/pharm.js"></script>
 <script src="js/app.js"></script>
 <script>
