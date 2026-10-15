@@ -275,6 +275,7 @@ S.srsCount = function(){ var m=S.srsAll(); return {all:Object.keys(m).length, du
 
 /* ---------- 重置 ---------- */
 S.wipeLearn = function(){
-  [K_LOG, K_SRS, K_DAY, K_WRONG, K_WMEM, K_WTRAIN].forEach(function(k){ localStorage.removeItem(k) });
+  /* 用 C.del 删：只删当前账号名下的，别的账号不受影响 */
+  [K_LOG, K_SRS, K_DAY, K_WRONG, K_WMEM, K_WTRAIN].forEach(function(k){ C.del ? C.del(k) : localStorage.removeItem(k) });
 };
 })();
