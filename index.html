@@ -102,6 +102,7 @@
         <span class="pill" id="pMaster" title="掌握度">掌握度 —</span>
         <a class="pill" href="#/p/wrong" id="pWrong" title="错题本" style="text-decoration:none">错题 0</a>
       </div>
+      <span class="kbtn" id="aiLamp" onclick="location.href='#/settings'" title="AI 状态，点开去设置页自检">AI</span>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.queryOpen()" title="查词（/）：单词查释义、整句拆句子">查词</span>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
     </header>
@@ -153,7 +154,6 @@
 <script src="js/assess.js"></script>
 <script src="js/core.js"></script>
 <!-- 本机专用：自动填入 AI 接口配置（含密钥，不上传；换成线上时请删掉这一行或用一次性链接配置） -->
-<script src="LOCAL-AI.js"></script>
 <script src="js/cloud.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/note.js"></script>
