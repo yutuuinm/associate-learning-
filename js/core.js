@@ -78,8 +78,22 @@ function aiPick(text){
     return m ? String(m.content||'').trim() : '';
   }catch(e){ return '' }
 }
+/* 上一次调用为什么失败：以前只返回 null，界面上只能写一句"AI 没返回内容"，
+   看不出是没启用、key 错了、模型名错了还是网断了 —— 现在把原因留下来 */
+C.aiLastErr = null;
+function aiErr(kind, status, msg){
+  C.aiLastErr = {kind:kind, status:status||0, msg:String(msg||'').slice(0,200), t:Date.now()};
+  return C.aiLastErr;
+}
+function serverMsg(text){
+  try{
+    var j=JSON.parse(text);
+    var e=j.error||j;
+    return (e && (e.message||e.msg)) || (j.message||'') || '';
+  }catch(err){ return String(text||'').slice(0,120) }
+}
 C.aiChat=async function(prompt, maxTok){
-  if(!C.aiReady()) return null;
+  if(!C.aiReady()){ aiErr('config', 0, C.aiWhy()||'未配置'); return null }
   var a=C.settings.ai;
   var tok=Math.max(parseInt(maxTok,10)||0, 600);          /* 下限 600：60 太容易被推理吃光 */
   var base={model:a.model||'deepseek-flash', messages:[{role:'user',content:prompt}],
@@ -87,14 +101,58 @@ C.aiChat=async function(prompt, maxTok){
   try{
     var r=await aiPost(Object.assign({thinking:{type:'disabled'}}, base));
     if(!r.ok && r.status===400 && /thinking/i.test(r.text)) r=await aiPost(base);
-    if(!r.ok) return null;
+    if(!r.ok){
+      var m=serverMsg(r.text);
+      if(r.status===401) m = m || 'Key 不对或已失效';
+      if(r.status===404) m = m || '地址或模型名不对（接口返回 404）';
+      if(r.status===402) m = m || '账户余额不足';
+      aiErr('http', r.status, m || ('HTTP '+r.status));
+      return null;
+    }
     var s=aiPick(r.text);
     if(!s && tok<4000){
       r=await aiPost(Object.assign({thinking:{type:'disabled'}}, base, {max_tokens:tok*3}));
       if(r.ok) s=aiPick(r.text);
     }
-    return s||null;
-  }catch(e){ return null }
+    if(!s){ aiErr('empty', 0, '接口通了但正文为空（多半是 token 被推理吃光，或这个模型不支持关思考）'); return null }
+    C.aiLastErr=null;
+    return s;
+  }catch(e){
+    aiErr('net', 0, '连不上接口：'+(e && e.message ? e.message : e) + '（也可能是跨域被浏览器拦了，看控制台）');
+    return null;
+  }
+};
+/* 为什么没连上 / 连上了吗：给界面用的一句话 */
+C.aiWhy=function(){
+  var a=C.settings.ai||{};
+  if(!a.enabled) return '没启用（去设置页打开「启用 AI」）';
+  if(!a.baseUrl) return '缺接口地址';
+  if(!a.key)     return '缺 API Key';
+  return null;
+};
+C.aiStatus=function(){
+  var w=C.aiWhy();
+  if(w) return {ok:false, t:'AI 未配置：'+w};
+  if(C.aiLastErr) return {ok:false, t:'上次调用失败：'+C.aiErrText(C.aiLastErr)};
+  return {ok:true, t:'AI 已接好 · '+(C.settings.ai.model||'')};
+};
+C.aiErrText=function(e){
+  if(!e) return '';
+  if(e.kind==='http') return 'HTTP '+e.status+'（'+(e.msg||'无详细')+'）';
+  if(e.kind==='net')  return e.msg || '网络错误';
+  if(e.kind==='empty')return e.msg || '返回为空';
+  return e.msg || '未配置';
+};
+/* 自检：真发一个最小请求，把结果和原因一起说清楚 */
+C.aiSelfTest=async function(){
+  var w=C.aiWhy();
+  if(w) return {ok:false, msg:'配置不全：'+w};
+  var t0=Date.now();
+  var s=await C.aiChat('只回复两个字：OK', 600);
+  var ms=((Date.now()-t0)/1000).toFixed(1);
+  if(s) return {ok:true, msg:'接口通了（'+ms+'s）：'+s.slice(0,24)};
+  var e=C.aiLastErr||{};
+  return {ok:false, msg:'调用失败（'+ms+'s）：'+C.aiErrText(e)};
 };
 /* 词典没有时，用 AI 补释义 */
 C.aiDefine=async function(word, ctx){
