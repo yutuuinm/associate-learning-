@@ -22,6 +22,17 @@ T.refreshBadges = function(){
   var s = C.STATS.srsCount();
   var d = $('cDue'); if(d){ d.textContent = s.due; d.style.display = s.due? '' : 'none' }
   var w = $('cWrong'); if(w){ w.textContent = C.STATS.wrongList().length; w.style.display = C.STATS.wrongList().length? '' : 'none' }
+  var wc = $('cWords'); if(wc){
+    var n = C.STATS.dayWordCount(), g = C.STATS.wordGoal();
+    wc.textContent = n + '/' + g;
+    wc.style.display = '' ;
+    wc.className = 'cnt' + (n >= g ? ' ok' : '');
+  }
+  var cn = $('cNotes'); if(cn && C.NOTE){
+    var nn = C.NOTE.count();
+    cn.textContent = nn;
+    cn.style.display = nn ? '' : 'none';
+  }
   var pw = $('cPWrong'); if(pw && C.PHARMQ){
     var n = C.PHARMQ.wrongCount();
     pw.textContent = n; pw.style.display = n ? '' : 'none';
@@ -44,14 +55,19 @@ T.KBD = [
     {n:'选择选项', k:'1 2 3 4', tip:'选项直接点就行'},
     {n:'上一题', k:'K', fn:'prev'},
     {n:'下一题', k:'J', fn:'next'},
+    {n:'找答案：四步带你找到依据', k:'F', fn:'solve'},
+    {n:'实在不会，按规律猜一个', k:'G', fn:'guess'},
     {n:'展开 / 收起本题解析', k:'E', fn:'reveal'},
     {n:'定位到原文依据', k:'L', fn:'locate'},
     {n:'整篇逐句翻译开关', k:'T', fn:'zh'},
     {n:'提交本套', k:'Enter', fn:'submit'}
   ]},
   { sec:'划词', items:[
-    {n:'把选中的词收进生词本（自动带例句）', k:'S', fn:'word'},
-    {n:'翻译划选的整段', k:'R', fn:'tr'}
+    {n:'把选中的词收进生词本（自动带例句）', k:'Tab', fn:'word'},
+    {n:'（同上，备用）', k:'S', fn:'word2'},
+    {n:'翻译划选的整段', k:'R', fn:'tr'},
+    {n:'把选中的一段存进摘抄本', k:'（浮动条）', fn:'note'},
+    {n:'打开查词面板：单词查释义、整句拆句子', k:'/', fn:'query'}
   ]},
   { sec:'349 带背', items:[
     {n:'播放 / 暂停', k:'空格', fn:'rcPlay'},
@@ -74,10 +90,15 @@ var ACT = {
   next:  function(){ T.next() },
   reveal:function(){ T.reveal() },
   locate:function(){ T.locate(T.cur0()) },
+  solve: function(){ T.solve() },
+  guess:function(){ T.blindGuess(T.cur0()) },
   zh:    function(){ T.toggleZh() },
   submit:function(){ if(T.ctx && T.ctx.onGrade) T.ctx.onGrade() },
   word:  function(){ T.addSel() },
+  word2: function(){ T.addSel() },
   tr:    function(){ T.translateSel() },
+  note:  function(){ T.saveSel() },
+  query: function(){ T.querySel() },
   rcPlay:function(){ if(C.PHARMV) C.PHARMV.rcToggle() },
   rcPrev:function(){ if(C.PHARMV) C.PHARMV.rcPrev() },
   rcNext:function(){ if(C.PHARMV) C.PHARMV.rcNext() },
@@ -96,7 +117,7 @@ function actOk(it){
   var rc = it.fn && it.fn.indexOf('rc') === 0;
   if(rc) return reciting;
   if(it.fn === 'close' || it.fn === 'open') return true;
-  if(it.fn === 'word' || it.fn === 'tr') return true;
+  if(it.fn === 'word' || it.fn === 'word2' || it.fn === 'tr' || it.fn === 'note' || it.fn === 'query') return true;
   return !!T.ctx;
 }
 T.runAct = function(name){
@@ -139,6 +160,7 @@ T.cur = 0;
 T.bind = function(ctx){
   T.ctx = ctx; T.cur = 0;
   T.hint = {};                 /* 每题用到了第几级提示，提交时记进日志 */
+  T.solveOpen = {};            /* 换一套时清空「找答案」面板的展开状态 */
   T.markCur();
 };
 T.unbind = function(){ T.ctx = null; T.stopTimer() };
@@ -263,7 +285,7 @@ T.pickCtx = function(word, ctxIn, nodeIn){
 };
 T.addWord = function(w, def, ctx, cz, src){
   w = String(w||'').toLowerCase().replace(/[^a-z-]/g,'');
-  if(!w || w.length<2){ T.toast('先选中一个单词，或把鼠标停在词上再按 S'); return }
+  if(!w || w.length<2){ T.toast('先选中一个单词，或把鼠标停在词上再按 S'); return false }
   if(!def) def = C.lookup(w) || '';
   var c = T.pickCtx(w, ctx);
   var S = C.STATS;
@@ -271,10 +293,18 @@ T.addWord = function(w, def, ctx, cz, src){
   if(existed && c.en && !S.srsHasCtx(w)){
     S.srsSetCtx(w, c.en, c.zh || cz || '', src || (C.srcLabel ? C.srcLabel() : ''), c.hl);
     T.toast(w + ' 已经在生词本里，已补上这句例句');
+  }else if(existed){
+    T.toast('已经有了：' + w);
   }else{
-    T.toast(existed ? ('已经有了：' + w) : ('已收进生词本：' + w + (c.en ? '（带例句）' : '（这段没有例句）')));
+    var n = S.dayWordCount(), g = S.wordGoal();
+    T.toast(n >= g
+      ? ('已收 ' + w + ' · 今天 ' + n + ' 个，目标达成')
+      : ('已收 ' + w + (c.en ? '（带例句）' : '（这段没有例句）') + ' · 今日 ' + n + '/' + g),
+      1500);
   }
   T.refreshBadges();
+  if(C.CLOUD && C.CLOUD.onWord) C.CLOUD.onWord();
+  return !existed;                 /* 返回"这次真的收进来了"，批量收词要数数 */
 };
 /* 例句里把目标词高亮出来 */
 T.ctxHTML = function(it){
@@ -291,9 +321,30 @@ T.ctxHTML = function(it){
   if(it.src) h += '<div class="exsrc">' + C.esc(it.src) + '</div>';
   return h;
 };
+function clearSel(){
+  try{
+    var s = window.getSelection && window.getSelection();
+    if(s && s.removeAllRanges) s.removeAllRanges();
+  }catch(e){}
+}
+/* 读者心流：选中一个词，Tab 一下就收走，选区自动清掉可以直接接着挑下一个 */
+T.tabWord = function(){
+  var sel = C._sel;
+  if(sel && sel.one && sel.word){
+    T.addWord(sel.word); C.hideSelBar(); clearSel(); return true;
+  }
+  var s = window.getSelection ? window.getSelection() : null;
+  var t = s ? String(s.toString()||'').trim() : '';
+  if(t && /^[A-Za-z][A-Za-z'-]*$/.test(t)){
+    T.addWord(t); C.hideSelBar(); clearSel(); return true;
+  }
+  if(C.lastWord){ T.addWord(C.lastWord); return true }
+  T.toast('先用鼠标选中一个单词，再按 Tab');
+  return false;
+};
 T.addSel = function(){
   var sel = C._sel;
-  if(sel && sel.one && sel.word){ T.addWord(sel.word); C.hideSelBar(); return }
+  if(sel && sel.one && sel.word){ T.addWord(sel.word); C.hideSelBar(); clearSel(); return }
   var s = window.getSelection();
   var t = s ? String(s.toString()||'').trim() : '';
   if(t && /^[A-Za-z][A-Za-z'-]*$/.test(t)){ T.addWord(t); return }
@@ -301,6 +352,31 @@ T.addSel = function(){
   T.toast('先选中一个单词，或把鼠标停在词上再按 S');
 };
 
+/* 单句翻译：点句尾的「译」，只翻这一句，就地对照（不用满篇开译文） */
+T.trSent = function(btn){
+  var p = btn && btn.parentNode; if(!p) return;
+  var ss = p.querySelectorAll ? p.querySelectorAll('.s[data-t]') : null;
+  if(!ss || !ss.length){ T.toast('这一句没有内置译文，划选它再点「翻译」'); return }
+  /* 再点一次收起 */
+  var old = p.querySelector ? p.querySelector('.sent-zh.inl') : null;
+  if(old){ if(old.parentNode) old.parentNode.removeChild(old); return }
+  var h = '<div class="selpairs">';
+  for(var i=0;i<ss.length;i++){
+    var en = String(ss[i].textContent||'').trim();
+    var zh = ss[i].getAttribute('data-t') || '';
+    h += '<div class="selp"><div class="se">' + C.esc(en) + '</div>';
+    h += zh ? ('<div class="sz">' + C.esc(zh) + '</div>') : '<div class="sz mut">（无内置译文）</div>';
+    h += '</div>';
+  }
+  h += '</div>';
+  var sp = document.createElement('div');
+  sp.className = 'sent-zh inl'; sp.innerHTML = h;
+  p.appendChild(sp);
+  /* 底部译文条同步，视线不用乱跑 */
+  var tt = C.$('tt'), box = C.$('trans');
+  if(tt){ tt.innerHTML = h; tt.className = ''; showTransX() }
+  if(box) box.classList.add('on');
+};
 /* ================= 划整段翻译 ================= */
 /* 优先用句子自带的译文逐句对照；没有内置译文再问 AI */
 T.translateSel = function(){
@@ -333,6 +409,12 @@ T.translateSel = function(){
   var h = '';
   if(pairs.length){
     h += '<div class="selhd">选中 ' + pairs.length + ' 句 · 逐句对照</div>';
+    /* 只选中一个词时，顺手把词义放在最上面 */
+    if(sel && sel.one && sel.en){
+      var def0 = C.lookup(sel.word);
+      h += '<div class="selwd">' + C.esc(sel.txt) + '：<b>' + C.esc(def0 || '词典没收录') + '</b>' +
+           (def0 ? '' : '（按 <kbd>S</kbd> 收进生词本，之后可一键补 AI 释义）') + '</div>';
+    }
     h += '<div class="selpairs">';
     pairs.forEach(function(p){
       h += '<div class="selp"><div class="se">' + C.esc(p.en) + '</div>';
@@ -370,6 +452,192 @@ T.translateSel = function(){
       '</div><div class="sz">' + C.esc(zh) + '</div></div></div>';
   });
 };
+/* 选区里带内置译文的句子（翻译与摘抄共用同一份逻辑） */
+function selPairs(){
+  var out = [];
+  try{
+    var s = window.getSelection();
+    if(!s || !s.rangeCount) return out;
+    var frag = s.getRangeAt(0).cloneContents();
+    var tmp = document.createElement('div'); tmp.appendChild(frag);
+    var ss = tmp.querySelectorAll('.s[data-t]');
+    for(var i=0;i<ss.length;i++){
+      var en = String(ss[i].textContent||'').trim();
+      var zh = ss[i].getAttribute('data-t') || '';
+      if(en) out.push({en:en, zh:zh});
+    }
+  }catch(e){}
+  return out;
+}
+function selText(){
+  if(C._sel && C._sel.txt) return C._sel.txt;
+  var s = window.getSelection && window.getSelection();
+  return s ? String(s.toString()||'').replace(/\s+/g,' ').trim() : '';
+}
+
+/* ================= 存进摘抄本（一整段） ================= */
+/* 生词本收词，摘抄本收段。存的时候顺手把内置译文也带上，之后能逐句对照 */
+T.saveSel = function(){
+  var txt = selText();
+  if(!txt){ T.toast('先用鼠标选中一段文字，再点「存摘抄」'); return }
+  var pairs = selPairs();
+  var zh = pairs.map(function(p){ return p.zh }).filter(Boolean).join(' ');
+  var ok = C.NOTE ? C.NOTE.add(txt, zh, C.srcLabel ? C.srcLabel() : '') : false;
+  T.toast(ok ? ('已存进摘抄本：' + txt.slice(0,18) + (txt.length>18?'…':'')) : '这一段已经在摘抄本里了');
+  T.refreshBadges();
+  C.hideSelBar(); clearSel();
+  if(C.CLOUD && C.CLOUD.onNote) C.CLOUD.onNote();
+};
+
+/* ================= 查词面板 ================= */
+/* 一个输入框解决三种需求：查单词（释义 + 助记）、查句子（翻译 + 拆句）、
+   查完直接入表（单词进生词本，句子进摘抄本） */
+T._q = null;
+T._qctx = '';
+T.queryOpen = function(txt, ctx){
+  var box = C.$('query'); if(!box) return;
+  var inp = C.$('qIn');
+  if(inp && txt != null) inp.value = txt;
+  if(ctx != null) T._qctx = ctx;
+  box.style.display = 'flex';
+  if(inp){ try{ inp.focus(); inp.select && inp.select() }catch(e){} }
+  if(inp && String(inp.value||'').trim()) T.queryGo(); else T.queryHint();
+};
+T.queryClose = function(){ var b = C.$('query'); if(b) b.style.display = 'none' };
+T.queryHint = function(){
+  var o = C.$('qOut'); if(!o) return;
+  T._q = null;
+  o.innerHTML = '<div class="qempty">输入一个<b>单词</b>、一个<b>短语</b>或<b>整句</b>，回车即可。<br>'
+    + '<span class="hint">单词给释义 + 怎么记；句子给翻译，还能让 AI 拆主干、把生词挑出来一起收走。</span></div>';
+};
+/* 从划选带过来：选中词就查词，选中句子就查句子 */
+T.querySel = function(){
+  var txt = selText();
+  var pairs = selPairs();
+  var zh = pairs.map(function(p){ return p.zh }).filter(Boolean).join(' ');
+  var ctx = (C._sel && C._sel.node && C.sentOf) ? ((C.sentOf(C._sel.node)||{}).en || '') : '';
+  C.hideSelBar();
+  T.queryOpen(txt || '', ctx);
+  if(zh && T._q) T._q.zh = zh;
+};
+T.queryGo = function(){
+  var inp = C.$('qIn'), o = C.$('qOut');
+  if(!inp || !o) return;
+  var q = String(inp.value||'').replace(/\s+/g,' ').trim();
+  if(!q){ T.queryHint(); return }
+  var one = /^[A-Za-z][A-Za-z'-]*$/.test(q);
+  var w = one ? q.toLowerCase().replace(/[^a-z-]/g,'') : '';
+  var ctx = T._qctx || '';
+  var old = T._q || {};
+  var inBook = one && C.STATS.srsAll()[w];
+  T._q = {txt:q, one:one, word:w, ctx:ctx, zh:old.zh||''};
+
+  var h = '<div class="qhd"><span class="qkind">' + (one?'单词':'句子 / 短语') + '</span><b>' + esc(q) + '</b>';
+  h += '<span style="flex:1"></span>';
+  if(one){
+    h += '<button class="sm ' + (inBook?'':'primary') + '" onclick="CET6.TOOLS.queryAdd()">'
+      + (inBook?'已在生词本':'收进生词本') + '</button> ';
+  }else{
+    h += '<button class="sm primary" onclick="CET6.TOOLS.queryNote()">存进摘抄本</button> ';
+  }
+  h += '<button class="sm" onclick="CET6.TOOLS.queryClose()">关闭</button></div>';
+
+  if(one){
+    var def = C.lookup(q);
+    h += '<div class="qsec"><div class="sh">词典</div>';
+    h += def ? ('<div class="qdef">' + esc(def) + ' <span class="hint">内置词典</span></div>')
+             : '<div class="qdef mut">内置词典没收录这个词' + (C.aiReady()?'，看下面的 AI 释义':'') + '。</div>';
+    if(ctx) h += '<div class="qctx"><b>原句</b> ' + esc(ctx) + '</div>';
+    h += '</div>';
+    h += '<div class="qsec"><div class="sh">怎么记 · 怎么用</div><div id="qai">'
+      + (C.aiReady() && C.settings.aiUse.define ? '<div class="hint">正在问 AI…</div>'
+         : (C.aiReady() ? '<div class="hint">AI 释义在设置里关掉了。</div>'
+            : '<div class="tipbox">没配 AI 接口，只能看内置词典。<a href="#/settings">去设置</a>里填好接口后，'
+              + '这里会给词根拆解、助记法和例句，还能直接练填空。</div>'))
+      + '</div></div>';
+  }else{
+    h += '<div class="qsec"><div class="sh">这段里的核心词</div><div id="qcore"></div></div>';
+    h += '<div class="qsec"><div class="sh">句子怎么读</div><div id="qai">'
+      + (C.aiReady() ? '<div style="margin-bottom:6px"><button class="sm" onclick="CET6.TOOLS.queryExplain()">让 AI 拆这段</button></div><div class="hint">主干 / 修饰 / 翻译 / 生词，一次讲完。</div>'
+         : '<div class="tipbox">没配 AI 接口，翻译和拆句都用不了。可以先「存进摘抄本」，'
+           + '或者把这段里的核心词直接收进生词本（上面那块）。</div>')
+      + '</div></div>';
+  }
+  o.innerHTML = h;
+  if(!one) T.queryCore(q);
+  if(one && C.aiReady() && C.settings.aiUse.define) T.queryAI(w, ctx);
+};
+/* 核心词：不依赖 AI，让"选中一段 → 收生词"这条路随时可用 */
+T.queryCore = function(txt){
+  var box = C.$('qcore'); if(!box || !C.NOTE) return;
+  var ws = C.NOTE.core(txt);
+  if(!ws.length){ box.innerHTML = '<div class="hint">这段里没有六级 / 考研核心词表里的词。</div>'; return }
+  var h = '<div class="wcrow">';
+  ws.forEach(function(x){
+    h += '<span class="wc" onclick="CET6.TOOLS.addWord(\'' + esc(String(x.w).toLowerCase()) + '\')" title="收进生词本">'
+      + esc(x.w) + '<i>' + (x.f===1?'高':(x.f===2?'中':'低')) + '</i></span>';
+  });
+  h += '</div>';
+  h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h += '<button class="sm primary" onclick="CET6.TOOLS.queryAddAll()">这 ' + ws.length + ' 个全收进生词本</button>';
+  h += '<span class="hint">点单个词也能收。收进去之后去「今日新词」练填空。</span></div>';
+  box.innerHTML = h;
+};
+T.queryAddAll = function(){
+  if(!T._q || T._q.one) return;
+  var ws = C.NOTE.core(T._q.txt), n = 0;
+  ws.forEach(function(x){ if(T.addWord(String(x.w).toLowerCase(), C.lookup(x.w)||'', T._q.txt.slice(0,180))) n++ });
+  T.toast(n ? ('这 ' + ws.length + ' 个词都收好了') : '这些词都已经在生词本里了');
+};
+T.queryAdd = function(){
+  if(!T._q || !T._q.one) return;
+  T.addWord(T._q.word, '', T._q.ctx || '');
+  var b = C.$('qOut');
+  if(b){ var bt = b.querySelector('.qhd button'); if(bt){ bt.textContent = '已在生词本'; bt.className = 'sm' } }
+};
+T.queryNote = function(){
+  if(!T._q || !C.NOTE) return;
+  var ok = C.NOTE.add(T._q.txt, T._q.zh, C.srcLabel ? C.srcLabel() : '');
+  T.toast(ok ? '已存进摘抄本' : '这段已经在摘抄本里了');
+  T.refreshBadges();
+  if(C.CLOUD && C.CLOUD.onNote) C.CLOUD.onNote();
+};
+T.queryAI = function(w, ctx){
+  C.aiAssist(w, ctx).then(function(o){
+    var box = C.$('qai'); if(!box) return;
+    if(!o){ box.innerHTML = '<div class="tipbox">AI 没返回内容。检查设置里的接口地址、令牌和模型名。</div>'; return }
+    C.STATS.memSet(w, JSON.stringify(o));
+    if(C.CLOUD && C.CLOUD.onMemory) C.CLOUD.onMemory(w, JSON.stringify(o));
+    box.innerHTML = C.memCard(w, o);
+  });
+};
+T.queryExplain = function(){
+  if(!T._q || T._q.one) return;
+  var box = C.$('qai'); if(!box) return;
+  var txt = T._q.txt;
+  box.innerHTML = '<div class="hint">AI 正在拆…</div>';
+  C.aiExplain(txt).then(function(o){
+    var el = C.$('qai'); if(!el) return;
+    if(!o){ el.innerHTML = '<div class="tipbox">AI 没返回内容。</div>'; return }
+    T._q.zh = o.zh || '';
+    var h = '';
+    if(o.main) h += '<div class="qrow"><b>主干</b><span>' + esc(o.main) + '</span></div>';
+    if(o.mods && o.mods.length) h += '<div class="qrow"><b>修饰</b><span>' + o.mods.map(esc).join('<br>') + '</span></div>';
+    if(o.zh) h += '<div class="qrow"><b>译文</b><span>' + esc(o.zh) + '</span></div>';
+    if(o.words && o.words.length){
+      h += '<div class="qrow"><b>生词</b><span>';
+      o.words.forEach(function(x){
+        var w = String(x.w||'').toLowerCase().replace(/[^a-z '-]/g,'');
+        h += '<span class="wc" onclick="CET6.TOOLS.addWord(\'' + esc(w) + '\',\'' + esc(x.zh||'') + '\')">'
+           + esc(x.w) + '</span> ';
+      });
+      h += '<br><span class="hint">点词就收进生词本，释义用 AI 给的这句里的意思。</span></span></div>';
+    }
+    h += '<div class="hint" style="margin-top:6px">AI 讲的只当参考，回原文再对一遍。</div>';
+    el.innerHTML = h;
+  });
+};
+
 function showTransX(){ var x=C.$('ttx'); if(x) x.style.display='' }
 T.selCopy = function(){
   var txt = C._sel ? C._sel.txt : '';
@@ -414,7 +682,16 @@ document.addEventListener('keydown', function(e){
   if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT') return;
   if(e.metaKey || e.ctrlKey || e.altKey) return;
 
-  if(e.key === 'Escape'){ T.kbdClose(); return }
+  if(e.key === 'Escape'){ T.kbdClose(); T.queryClose(); return }
+  /* Tab：选中词一键收进生词本（滑词连续收割就靠它） */
+  if(e.key === 'Tab'){
+    if(T.tabWord()) e.preventDefault();
+    return;
+  }
+  /* /：随时打开查词面板（选中了东西就带进去查） */
+  if(e.key === '/' || e.key === '、'){
+    T.querySel(); e.preventDefault(); return;
+  }
   if(e.key === '?'){ T.kbd(); return }
 
   /* 测评页自己的左右键 */
@@ -429,6 +706,8 @@ document.addEventListener('keydown', function(e){
   if(k==='k'){ T.prev(); e.preventDefault(); return }
   if(k==='e'){ T.reveal(); e.preventDefault(); return }
   if(k==='l'){ T.locate(T.cur0()); e.preventDefault(); return }
+  if(k==='f'){ T.solve(); e.preventDefault(); return }
+  if(k==='g'){ T.blindGuess(T.cur0()); e.preventDefault(); return }
   if(k==='t'){ T.toggleZh(); e.preventDefault(); return }
   if(k==='s'){ T.addSel(); e.preventDefault(); return }
   if(k==='r'){ T.translateSel(); e.preventDefault(); return }
@@ -490,6 +769,146 @@ T.rv = function(key, lv){
   var el = $(key); if(!el) return;
   lv = Math.min(lv, 4);
   el.outerHTML = T.rvHTML(q, lv, T.RVP[key] || '');
+};
+
+/* ================= 找答案：一步步带你摸到依据 =================
+   四步：题型方法 → 题干定位词 & 回原文 → 逐项排雷 → 真的不会才用规律兜底
+   全程不给答案，最后那步也只是"高概率项"，并要求回去对着原文核对 */
+T.solveOpen = {};
+T.ansOf = function(){ return null };   /* app.js 会覆盖成真实的作答表 */
+T.solveKey = function(pfx, n){ return 'solve_' + (pfx||'') + n };
+T.solveN = function(n){
+  if(!T.gotoQ(n)) return;
+  var q = null;
+  T.ctx.qs.forEach(function(x){ if(x.n === n) q = x });
+  if(!q) return;
+  var el = $(T.solveKey(T.ctx.pfx, n));
+  if(!el) return;
+  var on = T.solveOpen[n];
+  if(on){ el.innerHTML = ''; T.solveOpen[n] = false; T.untrap(n); return }
+  T.solveOpen[n] = true;
+  el.innerHTML = T.solveHTML(q);
+};
+T.solve = function(){ var n = T.cur0(); if(n) T.solveN(n) };
+T.untrap = function(n){
+  var pfx = T.ctx ? (T.ctx.pfx||'') : '';
+  var qw = $('qw_' + pfx + n); if(!qw || !qw.querySelectorAll) return;
+  var ts = qw.querySelectorAll('.otag');
+  for(var i=0;i<ts.length;i++){ if(ts[i].parentNode) ts[i].parentNode.removeChild(ts[i]) }
+  var os = qw.querySelectorAll('.opt');
+  for(var j=0;j<os.length;j++) os[j].className = 'opt';
+};
+function solveMethod(q){
+  var SV = C.SOLVE;
+  var lines = SV ? SV.methodOf(q.type) : null;
+  if(!lines) lines = ['先题后文：拿题干里的关键词回原文定位。'];
+  var t = C.TYPE && C.TYPE[q.type] ? C.TYPE[q.type] : null;
+  return (t ? '<div class="sd"><b>' + t.n + '</b>　' + t.tip + '</div>' : '') +
+    lines.map(function(s){ return '<div class="sd">· ' + s + '</div>' }).join('');
+}
+function solveKeys(q){
+  var SV = C.SOLVE;
+  if(!SV) return '';
+  var ks = SV.keys(q);
+  if(!ks.length) return '<div class="sd">题干里没有明显的定位标志，退而求其次：挑<b>最长的那个名词</b>回原文扫。</div>';
+  return '<div class="sd">拿这些词回原文扫读：<span class="kw">' +
+    ks.map(function(k){ return esc(k) }).join('</span> <span class="kw">') +
+    '</span><br><span class="hint">数字、大写、专有名词最好找——它们几乎不会被换词。</span></div>';
+}
+function solveTags(q){
+  var SV = C.SOLVE;
+  if(!SV) return '';
+  var tags = SV.tags(q);
+  if(!tags.length) return '<div class="sd">这一题的四个选项没什么明显的坑，老实回原文比对。</div>';
+  var byI = {};
+  tags.forEach(function(t){ (byI[t.i] = byI[t.i] || []).push(t) });
+  var h = '';
+  Object.keys(byI).forEach(function(i){
+    var L = String.fromCharCode(65 + (+i));
+    var arr = byI[i];
+    h += '<div class="sd"><b>' + L + '</b> ' +
+      arr.map(function(t){ return '<span class="otag ' + t.tag + '">' + esc(t.text) + '</span>' }).join(' ') + '</div>';
+  });
+  return h;
+}
+T.solveHTML = function(q){
+  var h = '<div class="solve">';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">';
+  h += '<b style="flex:1;min-width:140px">找答案 · 第 ' + q.n + ' 题</b>';
+  h += '<button class="sm" onclick="CET6.TOOLS.trapMark(' + q.n + ')">在选项上标出来</button>';
+  h += '<button class="sm" onclick="CET6.TOOLS.locate(' + q.n + ')">定位原文</button>';
+  h += '<button class="sm" onclick="CET6.TOOLS.solveN(' + q.n + ')">收起</button></div>';
+  h += '<div class="sd"><b>第 1 步 · 这题型怎么做</b></div>' + solveMethod(q);
+  h += '<div class="sd" style="margin-top:8px"><b>第 2 步 · 拿什么去原文找</b></div>' + solveKeys(q);
+  h += '<div class="sd" style="margin-top:8px"><b>第 3 步 · 哪些可以先排除</b></div>' + solveTags(q);
+  h += '<div class="sd" style="margin-top:8px"><b>第 4 步 · 实在读不懂</b>　' +
+       '<button class="sm" onclick="CET6.TOOLS.blindGuess(' + q.n + ')">按规律猜一个</button></div>';
+  h += '<div id="sg_' + (T.ctx.pfx||'') + q.n + '"></div>';
+  h += '</div>';
+  return h;
+};
+/* 把排雷标签直接写进选项里 */
+T.trapMark = function(n){
+  var SV = C.SOLVE;
+  if(!SV || !T.ctx) return;
+  var q = null;
+  T.ctx.qs.forEach(function(x){ if(x.n === n) q = x });
+  if(!q) return;
+  T.untrap(n);
+  var qw = $('qw_' + (T.ctx.pfx||'') + n); if(!qw || !qw.querySelectorAll) return;
+  var os = qw.querySelectorAll('.opt');
+  var tags = SV.tags(q);
+  for(var i=0;i<os.length;i++){
+    var mine = tags.filter(function(t){ return t.i === i });
+    if(!mine.length) continue;
+    var sp = document.createElement('span');
+    sp.className = 'otag ' + mine[0].tag;
+    sp.textContent = mine[0].text;
+    os[i].appendChild(sp);
+  }
+  T.toast('已在选项上标注');
+};
+/* 真的不会了：给一个概率最高的选项 + 理由，明说这是规律不是答案 */
+T.blindGuess = function(n){
+  var SV = C.SOLVE;
+  if(!SV || !T.ctx) return;
+  var q = null;
+  T.ctx.qs.forEach(function(x){ if(x.n === n) q = x });
+  if(!q) return;
+  var b = SV.blind(q);
+  var box = $('sg_' + (T.ctx.pfx||'') + n);
+  if(!box) return;
+  if(!b){ box.innerHTML = '<div class="sd">这题没法用规律判断，先定位回原文看看。</div>'; return }
+  var L = String.fromCharCode(65 + b.i);
+  var h = '<div class="sd"><b>规律指向 ' + L + '</b>　' + esc(String(q.o[b.i]).slice(0, 40)) + '</div>';
+  if(b.reasons.length) h += '<div class="sd">' + b.reasons.map(function(r){ return '· ' + esc(r) }).join('<br>') + '</div>';
+  /* 分布条：说明按 ABCD 均匀这条规律补的是谁 */
+  var d = SV.dist();
+  if(d._tot >= 3){
+    h += '<div class="sdist">这套已经选过 ' + d._tot + ' 题：';
+    ['A','B','C','D'].forEach(function(k, i){
+      if(i >= (q.o||[]).length) return;
+      h += '<span class="sdbox">' + k + '<span class="sdbar" style="width:' + (6 + d[k]*10) + 'px"></span>' + d[k] + '</span>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="sd hint">刚才这几步是<b>统计规律</b>，不是找到了依据。'
+     + '尤其要注意：本站题库是自编的，为了把干扰项写得明显，这类规律在<b>这里能蒙对九成</b>，'
+     + '真题上大约只有一半——靠它只能保底，练不出来真本事。</div>';
+  h += '<div style="margin-top:8px"><button class="sm" onclick="CET6.TOOLS.fillGuess(' + n + ',' + b.i + ')">先填上 ' + L + '</button> '
+     + '<button class="sm" onclick="CET6.TOOLS.locate(' + n + ')">定位原文核对</button></div>';
+  box.innerHTML = h;
+};
+T.fillGuess = function(n, i){
+  if(!T.ctx || !T.ctx.onPick) return;
+  T.ctx.onPick(n, i);
+  /* 打个标记：这是猜的，回头要回来核对 */
+  var qw = $('qw_' + (T.ctx.pfx||'') + n);
+  if(qw && qw.querySelectorAll){
+    var os = qw.querySelectorAll('.opt[data-i="' + i + '"]');
+    for(var k=0;k<os.length;k++) os[k].className = 'opt optpick';
+  }
+  T.toast('已选 ' + String.fromCharCode(65+i) + '（虚线标记 = 猜的），做完记得回原文核对为什么');
 };
 
 /* ================= 完整解析（非分层，用于提交后） ================= */
