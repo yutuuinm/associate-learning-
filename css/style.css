@@ -126,6 +126,11 @@ p{margin:0 0 10px}
 .kbtn.ai-ok:hover{border-color:#15803D;color:#15803D}
 .kbtn.ai-no{width:auto;padding:0 7px;color:#B91C1C;border-color:#FCA5A5;background:#FEF2F2}
 .kbtn.ai-no:hover{border-color:#B91C1C;color:#B91C1C}
+/* 顶栏账号灯：蓝=已登录（显示谁），灰=未登录 */
+.kbtn.acc-on{width:auto;padding:0 8px;color:#1D4ED8;border-color:#93C5FD;background:#EFF6FF;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kbtn.acc-on:hover{border-color:#1D4ED8;color:#1D4ED8}
+.kbtn.acc-off{width:auto;padding:0 8px;color:var(--mut)}
+.kbtn.acc-off:hover{border-color:var(--brand);color:var(--brand)}
 
 /* ================= 通用组件 ================= */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin:0 0 14px;box-shadow:var(--sh)}
