@@ -78,6 +78,7 @@ function route(){
   setCrumb(view);
   set('cet6_last', location.hash);
   T.refreshBadges();
+  C.aiPaintStatus();          /* 顶栏 AI 灯每换一页都刷一次 */
 }
 function markNav(v){
   var as=document.querySelectorAll('#menuCet6 a');
@@ -1153,7 +1154,9 @@ function renderWords(){
   h+='<button class="primary" onclick="location.href=\'#/bank\'">去文章里继续收</button> ';
   h+='<button onclick="CET6.TOOLS.practiceAll()">全部练一遍</button> ';
   h+='<button onclick="CET6.fillAllMem()">给全部词要 AI 助记</button>';
-  h+='<span class="hint" style="align-self:center">'+ (C.aiReady()?'AI 已接好':'AI 没配置，助记按钮会提示去设置') +'</span>';
+  var st=C.aiStatus();
+  h+='<span class="hint" style="align-self:center'+(st.ok?'':';color:#B91C1C')+'">'+ esc(st.t) +'</span>';
+  h+='<button class="sm" onclick="CET6.aiTest()">自检一下</button>';
   h+='</div></div>';
 
   if(!list.length){
@@ -1297,7 +1300,7 @@ C.noteExplain=function(ts){
   box.innerHTML='<div class="hint">AI 正在拆…</div>';
   C.aiExplain(it.t).then(function(o){
     var el=$('nt_'+ts); if(!el) return;
-    if(!o){ el.innerHTML='<div class="tipbox">AI 没返回内容。</div>'; return }
+    if(!o){ el.innerHTML='<div class="tipbox"><b>AI 没返回内容。</b>'+esc(C.aiErrText(C.aiLastErr))+'</div>'; return }
     if(o.zh && !it.zh){ it.zh=o.zh; C.NOTE.all().forEach(function(x){ if(x.ts===ts) x.zh=o.zh }); C.set('cet6_notes_v1', C.NOTE.all()) }
     var h='';
     if(o.main) h+='<div class="qrow"><b>主干</b><span>'+esc(o.main)+'</span></div>';
@@ -1371,7 +1374,8 @@ C.aiMemory=function(w){
   box.innerHTML='<div class="tipbox">正在问 AI 怎么记这个词…</div>';
   C.aiAssist(w, it.c).then(function(o){
     var el=$('mem_'+w); if(!el) return;
-    if(!o){ el.innerHTML='<div class="tipbox">AI 没返回内容，检查一下接口地址和模型名。</div>'; return }
+    if(!o){ el.innerHTML='<div class="tipbox"><b>AI 没返回内容。</b>'+esc(C.aiErrText(C.aiLastErr))
+    + '<br>去 <a href="#/settings">设置</a> 里点「自检一下」，它会把具体原因说出来（Key / 模型名 / 余额 / 跨域）。</div>'; return }
     var txt=JSON.stringify(o);
     S.memSet(w, txt);
     if(C.CLOUD && C.CLOUD.onMemory) C.CLOUD.onMemory(w, txt);
@@ -1542,6 +1546,10 @@ function renderSettings(){
   h+='<div class="card"><h3>AI 接口（可选）</h3>';
   h+='<p class="sub">不填也能用。填了之后：给今天的新词生成<b>怎么记的助记</b>（词根/联想/搭配/例句）、'
    + '词典没收的词自动问 AI、划选段落能整段翻译。</p>';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px">';
+  h+='<span class="pill n" id="aiState">检测中…</span>';
+  h+='<button class="sm primary" onclick="CET6.aiTest()">自检一下</button>';
+  h+='<span class="hint" id="aiMsg"></span></div>';
   h+='<label class="chk"><input type="checkbox" id="aiOn"'+(a.enabled?' checked':'')+'>启用 AI</label>';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">';
   h+='<span class="hint" style="align-self:center">一键填入：</span>';
@@ -1578,8 +1586,18 @@ function renderSettings(){
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
   h+='<button class="primary" onclick="CET6.saveAI()">保存并测试连接</button> ';
   h+='<button onclick="CET6.aiToCloud()">把配置存到云端</button> ';
-  h+='<button onclick="CET6.aiFromCloud()">从云端读回来</button>';
-  h+='<span class="hint" id="aiMsg"></span></div>';
+  h+='<button onclick="CET6.aiFromCloud()">从云端读回来</button></div>';
+  /* 本机配置文件里带了一个一次性链接，可以一键把配置推到线上那份（链接只在本机，不会进仓库） */
+  if(C._aiLink){
+    h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+    h+='<a class="sm" style="display:inline-block" href="'+esc(C._aiLink)+'" onclick="return confirm(\'会打开线上那份并用一次性链接把配置写进去（地址栏随后自动清掉）。继续？\')">';
+    h+='给线上那份也配上 AI</a>';
+    h+='<span class="hint">线上那份没有内置密钥（仓库是公开的），用这个链接配置一次即可。</span></div>';
+  }else if(!C.aiReady()){
+    h+='<p class="hint" style="margin-top:10px">这份没有内置密钥。要么在上面手填，'
+     + '要么用一次性链接：<code>你的站点地址/?aikey=你的key&amp;aiurl=https://api.deepseek.com&amp;aimodel=deepseek-flash</code>'
+     + '（配置写进浏览器后地址栏会自动清掉）。</p>';
+  }
   h+='<p class="hint" style="margin-top:10px">Key 默认只存在<b>这台浏览器</b>里。点「存到云端」会上传到你的数据库——'
    + '<b>只有在你确认这个站点不会被别人打开时才这么做</b>；一旦上传，任何能打开这个页面的人都能读到它。</p></div>';
 
@@ -1595,6 +1613,7 @@ function renderSettings(){
   h+='<div class="card"><h3>关于题库</h3>';
   h+='<p class="sub" style="margin:0">真实六级真题受版权保护，本站不内置真题。内置的是按真题题型、分值、篇幅自编的仿真卷。你拿到真题后，在「导入题目」里上传 PDF 或粘贴文本即可自己加进题库。</p></div>';
   $('app').innerHTML=h;
+  C.aiPaintStatus();          /* 进来就先把 AI 状态标出来，不用点才知道连没连上 */
 }
 C.saveLearn=function(){
   C.settings.hoverTip=$('sHover').checked;
@@ -1628,11 +1647,39 @@ C.saveAI=function(){
     key:$('aiKey').value.trim(), model:$('aiModel').value.trim()||'deepseek-flash' };
   C.settings.aiUse={ memory:$('aiU1').checked, define:$('aiU2').checked, translate:$('aiU3').checked };
   C.saveSettings();
-  var m=$('aiMsg'); m.textContent='已保存，测试中…';
-  if(!C.aiReady()){ m.textContent='未启用或信息不全，已保存。'; return }
-  C.aiDefine('serendipity','').then(function(d){
-    m.textContent = d? ('连接成功，返回：'+d) : '连接失败，请检查地址/Key/模型名/跨域设置。';
+  C.aiTest();
+};
+/* 自检：真发一个请求，把"通了 / 为什么没通"说清楚，而不是一句"连接失败" */
+C.aiTest=function(){
+  var w=C.aiWhy();
+  if(w){
+    var el=$('aiMsg');
+    if(el) el.innerHTML='<b style="color:#B91C1C">没接上</b>：'+esc(w)+'（地址、Key、模型名要全填，并勾上「启用 AI」）';
+    else T.toast('AI 未配置：'+w, 3200);
+    C.aiPaintStatus(); return;
+  }
+  var m=$('aiMsg'); if(m) m.textContent='已保存，正在真的发一个请求测试…';
+  else T.toast('正在真的发一个请求测试…');
+  C.aiSelfTest().then(function(r){
+    var el=$('aiMsg');
+    var html = r.ok ? '<b style="color:#15803D">'+esc(r.msg)+'</b>'
+                    : '<b style="color:#B91C1C">没接上</b>：'+esc(r.msg);
+    if(el) el.innerHTML=html; else T.toast(r.msg, 4000);
+    C.aiPaintStatus();
   });
+};
+/* 状态条：不用点也能一眼看到现在是什么情况
+   顶栏那个小灯也一起刷 —— 不然在阅读页点了 AI 才发现没配，还得猜为什么 */
+C.aiPaintStatus=function(){
+  var st=C.aiStatus();
+  var el=$('aiState');
+  if(el){ el.className='pill '+(st.ok?'g':'r'); el.textContent=st.t }
+  var lamp=$('aiLamp');
+  if(lamp){
+    lamp.className='kbtn '+(st.ok?'ai-ok':'ai-no');
+    lamp.textContent=st.ok ? 'AI ✓' : 'AI ✕';
+    lamp.title=(st.ok?'AI 已接好':'AI 没接上：'+st.t)+'（点开去设置页自检）';
+  }
 };
 /* AI 配置存/取云端（默认不做，只有用户明确点才做） */
 C.aiToCloud=function(){
