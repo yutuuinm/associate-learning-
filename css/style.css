@@ -121,6 +121,11 @@ p{margin:0 0 10px}
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut);font-size:12px;font-family:var(--mono);
 }
 .kbtn:hover{border-color:var(--brand);color:var(--brand)}
+/* 顶栏 AI 状态灯：绿=接好了，红=没接上（悬停看原因） */
+.kbtn.ai-ok{width:auto;padding:0 7px;color:#15803D;border-color:#86EFAC;background:#F0FDF4}
+.kbtn.ai-ok:hover{border-color:#15803D;color:#15803D}
+.kbtn.ai-no{width:auto;padding:0 7px;color:#B91C1C;border-color:#FCA5A5;background:#FEF2F2}
+.kbtn.ai-no:hover{border-color:#B91C1C;color:#B91C1C}
 
 /* ================= 通用组件 ================= */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin:0 0 14px;box-shadow:var(--sh)}
