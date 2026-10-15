@@ -324,12 +324,22 @@
 
 | 接口 | base URL | 模型 |
 |---|---|---|
-| DeepSeek | `https://api.deepseek.com` | `deepseek-v4-flash`（快且便宜，助记够用）/ `deepseek-v4-pro` |
+| DeepSeek | `https://api.deepseek.com` | **`deepseek-flash`**（V4.1 Flash，快且便宜，助记和翻译够用）/ `deepseek-v4-pro`（拆长难句更稳） |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-flash-4.1` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | 智谱 | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
 
-注意：DeepSeek 的旧模型名 `deepseek-chat` / `deepseek-reasoner` 已于 2026 年 7 月停用，要写新名字。
+注意：DeepSeek 现在的名字是 **`deepseek-flash`**（对应 V4.1 Flash）和 **`deepseek-v4-pro`**；旧名 `deepseek-chat` / `deepseek-reasoner` 已于 2026 年 7 月停用，`deepseek-v4-flash` 只是个别名（能用，但建议写 `deepseek-flash`）。模型名可以拿接口列出来核对：`GET https://api.deepseek.com/models`。
+
+**思考型模型的一个坑（已在代码里兜住）**：V4 系列默认会先"想"一段，如果你给的 `max_tokens` 太小（比如 60），token 会全部烧在推理上，返回的正文是空字符串 —— 表现就是"AI 没返回内容"。所以请求里统一做了三件事：token 下限 600、默认带 `thinking:{type:"disabled"}`、接口不认这个字段时自动摘掉重试一次。
+
+**密钥不要进仓库**（这个仓库是公开的，key 漏上去等于把额度送人）。三种做法任选：
+
+1. **本机文件**（推荐，打开就配好）：`cet6-site/LOCAL-AI.js` 里填一次，打开 `index.html` 自动写进 localStorage。部署脚本会跳过名字里带 `LOCAL-` 的文件
+2. **一次性链接**（适合线上那份）：打开 `https://你的域名/?aikey=你的key&aiurl=https://api.deepseek.com&aimodel=deepseek-flash`，配置写进浏览器后地址栏自动清掉
+3. **设置页手填**：AI 接口区，点「DeepSeek Flash」一键填好地址和模型，只粘 Key
+
+三重保险：`ghdeploy.js` 会跳过所有 `LOCAL-` / `-local.` 文件，并在上传前扫描 `sk-` / `sbp_` 密钥 —— 扫到就直接中止部署。
 
 ## 云端备份（Supabase，可选）
 
@@ -345,6 +355,7 @@
 ```
 index.html          骨架：侧边栏（可切考试）+ 顶栏 + 内容区
 css/style.css       设计系统（配色/间距/组件/响应式/带背与机理样式）
+LOCAL-AI.js         ⚠️ 本机专用：自动填入 AI 密钥，**不会被部署脚本上传**
 --- CET-6 ---
 js/dict.js          322 条内置词典
 js/bank-reading.js  仔细阅读 4 篇 + 选词填空 C01 + 长篇匹配 M01
