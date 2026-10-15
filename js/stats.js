@@ -7,7 +7,10 @@ var C = window.CET6;
 var S = C.STATS = {};
 
 var K_LOG='cet6_log_v1', K_SRS='cet6_srs_v1', K_DAY='cet6_day_v1',
-    K_WRONG='cet6_wrong_v1', K_GOAL='cet6_goal_v1';
+    K_WRONG='cet6_wrong_v1', K_GOAL='cet6_goal_v1',
+    K_WDAY='cet6_wday_v1',      /* 每天收进生了哪些词 { day: [word] } */
+    K_WMEM='cet6_wmem_v1',      /* AI 助记缓存 { word: {txt, t} } */
+    K_WTRAIN='cet6_wtrain_v1';  /* 运用练习记录 { day: { word: {ok, n} } } */
 
 /* ---------- 六级题型分值常量 ---------- */
 /* kind: lecture 讲座 / conv 长对话 / passage 听力篇章 / read 仔细阅读 / match 长篇匹配 / cloze 选词填空 */
@@ -176,19 +179,70 @@ S.srsAdd = function(w, def, ctx, cz, src, hl){
     if(src && !it0.src){ it0.src = src; ch = true }
     if(hl  && !it0.hl){ it0.hl = hl; ch = true }
     if(def && !it0.d){ it0.d = def; ch = true }
-    if(ch) C.set(K_SRS, m);
+    if(ch){ it0.up = Date.now(); C.set(K_SRS, m) }
     return false;
   }
+  var now = Date.now();
   m[k] = {w:String(w).toLowerCase(), d:def||'', c:ctx||'', cz:cz||'', src:src||'', hl:hl||'',
-          ef:2.5, iv:1, rep:0, due:today(), add:Date.now()};
+          ef:2.5, iv:1, rep:0, due:today(), add:now, up:now};
   C.set(K_SRS, m);
+  dayWordAdd(k);                 /* 任何入口收的词都算进今天的清单 */
   return true;
 };
+/* ---------- 每日新词清单（目标：每天 50 个出自文章的生词） ---------- */
+function dayWordAdd(w){
+  var m = C.get(K_WDAY, {}), d = today();
+  var a = m[d] || [];
+  if(a.indexOf(w) >= 0) return false;
+  a.push(w); m[d] = a;
+  /* 只留最近 60 天 */
+  var ks = Object.keys(m).sort();
+  if(ks.length > 60) ks.slice(0, ks.length-60).forEach(function(k){ delete m[k] });
+  C.set(K_WDAY, m);
+  return true;
+}
+S.dayWords = function(d){
+  var m = C.get(K_WDAY, {});
+  return m[d || today()] || [];
+};
+S.dayWordCount = function(d){ return S.dayWords(d).length };
+S.wordGoal = function(){ var g = C.get(K_GOAL, {daily:30}); return g.words || 50 };
+S.setWordGoal = function(n){ var g = C.get(K_GOAL, {daily:30}); g.words = n; C.set(K_GOAL, g) };
+S.wordDays = function(){ return Object.keys(C.get(K_WDAY, {})) };
+/* 连续完成每日生词目标的天数 */
+S.wordStreak = function(){
+  var m = C.get(K_WDAY, {}), n = 0, d = today(), g = S.wordGoal();
+  if(!(m[d] && m[d].length >= g)) d = dayAdd(d, -1);
+  while(m[d] && m[d].length >= g){ n++; d = dayAdd(d, -1) }
+  return n;
+};
+/* ---------- AI 助记缓存 ---------- */
+S.mem = function(w){
+  var m = C.get(K_WMEM, {});
+  return m[String(w||'').toLowerCase()] || null;
+};
+S.memSet = function(w, txt){
+  var m = C.get(K_WMEM, {});
+  m[String(w||'').toLowerCase()] = {txt: txt, t: Date.now()};
+  C.set(K_WMEM, m);
+};
+S.memAll = function(){ return C.get(K_WMEM, {}) };
+/* ---------- 运用练习记录 ---------- */
+S.trainHit = function(w, ok){
+  var m = C.get(K_WTRAIN, {}), d = today();
+  if(!m[d]) m[d] = {};
+  var it = m[d][w] || {ok:0, n:0};
+  it.n++; if(ok) it.ok++;
+  m[d][w] = it; C.set(K_WTRAIN, m);
+  return it;
+};
+S.trainToday = function(){ var m = C.get(K_WTRAIN, {}); return m[today()] || {} };
 /* 补例句（词已在生词本里但没例句时覆盖写入） */
 S.srsSetCtx = function(w, ctx, cz, src, hl){
   var m = S.srsAll(), k = String(w||'').toLowerCase().replace(/[^a-z-]/g,'');
   var it = m[k]; if(!it) return false;
   if(ctx){ it.c = ctx; it.cz = cz||''; it.src = src||''; it.hl = hl||'' }
+  it.up = Date.now();
   C.set(K_SRS, m);
   return true;
 };
@@ -214,12 +268,13 @@ S.srsReview = function(k, grade){
   it.ef = ef; it.iv = iv;
   it.due = dayAdd(today(), iv);
   it.last = Date.now();
+  it.up = Date.now();
   C.set(K_SRS, m);
 };
 S.srsCount = function(){ var m=S.srsAll(); return {all:Object.keys(m).length, due:S.srsDue().length} };
 
 /* ---------- 重置 ---------- */
 S.wipeLearn = function(){
-  [K_LOG, K_SRS, K_DAY, K_WRONG].forEach(function(k){ localStorage.removeItem(k) });
+  [K_LOG, K_SRS, K_DAY, K_WRONG, K_WMEM, K_WTRAIN].forEach(function(k){ localStorage.removeItem(k) });
 };
 })();
