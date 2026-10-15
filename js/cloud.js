@@ -24,6 +24,14 @@ CL.msg = '';
 CL.save = function(){ C.set(KEY, {enabled:CL.cfg.enabled, url:CL.cfg.url, key:CL.cfg.key, auto:CL.cfg.auto, last:CL.cfg.last}) };
 CL.ready = function(){ return !!(CL.cfg.enabled && CL.cfg.url && CL.cfg.key) };
 
+/* 这批数据归谁：登录了就是这个账号的 id，没登录落在 'anon' 公共区
+   表的主键都是 (user_id, ...)，所以不同账号的同名数据不会互相覆盖 */
+CL.uid = function(){
+  try{ var u = C.ACC && C.ACC.cur ? C.ACC.cur() : null; return u ? u.id : 'anon' }
+  catch(e){ return 'anon' }
+};
+function who(){ return 'user_id=eq.' + encodeURIComponent(CL.uid()) }
+
 function base(){ return String(CL.cfg.url||'').replace(/\/+$/,'') + '/rest/v1/' }
 function hdr(extra){
   var h = { apikey: CL.cfg.key, Authorization: 'Bearer ' + CL.cfg.key,
@@ -54,16 +62,17 @@ function set(state, msg){
 /* ---------- 连通性测试 ---------- */
 CL.test = function(){
   if(!CL.ready()){ set('off',''); return Promise.resolve(false) }
-  return req('study_words?select=word&limit=1', { headers: hdr() })
+  return req('study_words?select=word&limit=1&' + who(), { headers: hdr() })
     .then(function(){ set('ok',''); return true })
     .catch(function(e){ set('err', e.message); return false });
 };
 
 /* ---------- 生词本：双向合并，谁新听谁的 ---------- */
 function rowsFor(m){
+  var uid = CL.uid();
   return Object.keys(m).map(function(k){
     var it = m[k] || {};
-    return { word:k, def:it.d||'', ctx_en:it.c||'', ctx_zh:it.cz||'', src:it.src||'', hl:it.hl||'',
+    return { user_id:uid, word:k, def:it.d||'', ctx_en:it.c||'', ctx_zh:it.cz||'', src:it.src||'', hl:it.hl||'',
              ef:it.ef||2.5, iv:it.iv||1, rep:it.rep||0, due:it.due||'', added_at:it.add||0,
              updated_at:it.up||it.add||0 };
   });
@@ -98,7 +107,7 @@ function mergeLocal(remote){
   return changed;
 }
 CL.pullWords = function(){
-  return req('study_words?select=*', { headers: hdr() }).then(function(rows){ return mergeLocal(rows) });
+  return req('study_words?select=*&' + who(), { headers: hdr() }).then(function(rows){ return mergeLocal(rows) });
 };
 CL.pushWords = function(){
   var rows = rowsFor(ST().srsAll());
@@ -115,8 +124,9 @@ CL.pushLog = function(){
   var logs = ST().logs(), from = C.get(K_LOGIDX, 0);
   var add = logs.filter(function(r){ return (r.t||0) > from });
   if(!add.length) return Promise.resolve(0);
+  var uid = CL.uid();
   var rows = add.map(function(r){
-    return { ts:r.t||0, day:r.d||'', kind:r.kind||'', sid:r.sid||'', qn:r.qn||0,
+    return { user_id:uid, ts:r.t||0, day:r.d||'', kind:r.kind||'', sid:r.sid||'', qn:r.qn||0,
              qtype:r.type||'', ok:r.ok||0, pick:r.pick==null?-1:r.pick, ms:r.ms||0, hint:r.hint||0 };
   });
   var jobs = chunk(rows, 500).map(function(c){
@@ -131,10 +141,10 @@ CL.pushLog = function(){
 
 /* ---------- 每日新词清单：取并集 ---------- */
 CL.syncDaily = function(){
-  var local = C.get('cet6_wday_v1', {});
+  var local = C.get('cet6_wday_v1', {}), uid = CL.uid();
   var rows = [];
   Object.keys(local).forEach(function(d){
-    (local[d]||[]).forEach(function(w){ rows.push({day:d, word:w, added_at:Date.now(), reviewed:0}) });
+    (local[d]||[]).forEach(function(w){ rows.push({user_id:uid, day:d, word:w, added_at:Date.now(), reviewed:0}) });
   });
   var push = rows.length
     ? (chunk(rows, 500).map(function(c){
@@ -142,7 +152,7 @@ CL.syncDaily = function(){
       }))
     : [Promise.resolve()];
   return Promise.all(push).then(function(){
-    return req('daily_words?select=day,word', { headers: hdr() });
+    return req('daily_words?select=day,word&' + who(), { headers: hdr() });
   }).then(function(remote){
     var ch = 0;
     (remote||[]).forEach(function(r){
@@ -158,9 +168,9 @@ CL.syncDaily = function(){
 
 /* ---------- AI 助记缓存：取新 ---------- */
 CL.syncMem = function(){
-  var local = ST().memAll();
+  var local = ST().memAll(), uid = CL.uid();
   var rows = Object.keys(local).map(function(w){
-    return { word:w, memory: local[w].txt, updated_at: local[w].t||0 };
+    return { user_id:uid, word:w, memory: local[w].txt, updated_at: local[w].t||0 };
   });
   var push = rows.length
     ? (chunk(rows, 200).map(function(c){
@@ -168,7 +178,7 @@ CL.syncMem = function(){
       }))
     : [Promise.resolve()];
   return Promise.all(push).then(function(){
-    return req('word_memory?select=word,memory,updated_at', { headers: hdr() });
+    return req('word_memory?select=word,memory,updated_at&' + who(), { headers: hdr() });
   }).then(function(remote){
     var ch = 0;
     (remote||[]).forEach(function(r){
@@ -187,8 +197,8 @@ CL.syncMem = function(){
 CL.syncNotes = function(){
   if(!C.NOTE) return Promise.resolve(0);
   var K_TS = 'cet6_notes_ts';
-  var localTs = C.get(K_TS, 0), local = C.NOTE.all();
-  return req('app_settings?k=eq.notes&select=v,updated_at', { headers: hdr() })
+  var localTs = C.get(K_TS, 0), local = C.NOTE.all(), uid = CL.uid();
+  return req('app_settings?k=eq.notes&' + who() + '&select=v,updated_at', { headers: hdr() })
     .then(function(rows){
       var r = (rows||[])[0], remote = [], rts = 0;
       if(r && r.v){ rts = r.updated_at || 0; try{ remote = JSON.parse(r.v)||[] }catch(e){ remote = [] } }
@@ -206,7 +216,7 @@ CL.syncNotes = function(){
       C.set(K_TS, Math.max(localTs, rts));
       return req('app_settings', { method:'POST',
         headers: hdr({Prefer:'resolution=merge-duplicates,return=minimal'}),
-        body: JSON.stringify({k:'notes', v: JSON.stringify(out), updated_at: Date.now()}) })
+        body: JSON.stringify({user_id:uid, k:'notes', v: JSON.stringify(out), updated_at: Date.now()}) })
         .then(function(){ return out.length }).catch(function(){ return 0 });
     })
     .catch(function(){ return 0 });
@@ -273,7 +283,7 @@ CL.label = function(){
 };
 /* 云端 AI 配置（可选，默认不同步——见设置页说明） */
 CL.getAI = function(){
-  return req('app_settings?k=eq.ai&select=v', { headers: hdr() })
+  return req('app_settings?k=eq.ai&' + who() + '&select=v', { headers: hdr() })
     .then(function(rows){
       var r = (rows||[])[0]; if(!r || !r.v) return null;
       try{ return JSON.parse(r.v) }catch(e){ return null }
@@ -282,7 +292,14 @@ CL.getAI = function(){
 CL.setAI = function(obj){
   return req('app_settings', { method:'POST',
     headers: hdr({Prefer:'resolution=merge-duplicates,return=minimal'}),
-    body: JSON.stringify({k:'ai', v: JSON.stringify(obj), updated_at: Date.now()}) })
+    body: JSON.stringify({user_id:CL.uid(), k:'ai', v: JSON.stringify(obj), updated_at: Date.now()}) })
     .then(function(){ return true }).catch(function(){ return false });
+};
+/* 这批云端数据现在挂在谁名下（给界面显示） */
+CL.owner = function(){
+  var uid = CL.uid();
+  if(uid === 'anon') return '未登录（公共区）';
+  var u = (C.ACC && C.ACC.cur) ? C.ACC.cur() : null;
+  return u ? u.name : '未登录（公共区）';
 };
 })();
