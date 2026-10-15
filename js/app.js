@@ -1587,12 +1587,18 @@ function renderSettings(){
   h+='<button class="primary" onclick="CET6.saveAI()">保存并测试连接</button> ';
   h+='<button onclick="CET6.aiToCloud()">把配置存到云端</button> ';
   h+='<button onclick="CET6.aiFromCloud()">从云端读回来</button></div>';
-  /* 本机配置文件里带了一个一次性链接，可以一键把配置推到线上那份（链接只在本机，不会进仓库） */
-  if(C._aiLink){
+  /* 把当前这份 AI 配置做成一次性链接，好给另一份站点（比如线上那份）配一次。
+     链接只在你自己的浏览器里现算，不会进仓库；本机配置文件里也可以指定 C._aiLink 覆盖。 */
+  var aiLink = C._aiLink || C.aiShareLink();
+  if(aiLink){
+    var isFile = location.protocol === 'file:';
     h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-    h+='<a class="sm" style="display:inline-block" href="'+esc(C._aiLink)+'" onclick="return confirm(\'会打开线上那份并用一次性链接把配置写进去（地址栏随后自动清掉）。继续？\')">';
-    h+='给线上那份也配上 AI</a>';
-    h+='<span class="hint">线上那份没有内置密钥（仓库是公开的），用这个链接配置一次即可。</span></div>';
+    h+='<a class="sm" style="display:inline-block" href="'+esc(aiLink)+'" onclick="return confirm(\'会用一次性链接把这份 AI 配置带过去（地址栏随后自动清掉）。继续？\')">';
+    h+= isFile ? '给线上那份也配上 AI' : '把这份配置复制成一次性链接';
+    h+='</a>';
+    h+='<span class="hint">'+(isFile
+      ? '线上那份没有内置密钥（仓库是公开的），点一下配置一次即可。'
+      : '在另一台设备 / 另一份站点上打开这个链接就配好了。')+'</span></div>';
   }else if(!C.aiReady()){
     h+='<p class="hint" style="margin-top:10px">这份没有内置密钥。要么在上面手填，'
      + '要么用一次性链接：<code>你的站点地址/?aikey=你的key&amp;aiurl=https://api.deepseek.com&amp;aimodel=deepseek-flash</code>'
@@ -1667,6 +1673,15 @@ C.aiTest=function(){
     if(el) el.innerHTML=html; else T.toast(r.msg, 4000);
     C.aiPaintStatus();
   });
+};
+/* 把当前 AI 配置拼成一次性链接（不含任何硬编码密钥：只读你本机已经填好的配置） */
+C.aiShareLink=function(){
+  var a=C.settings.ai||{};
+  if(!a.key) return '';
+  return location.href.split('#')[0].split('?')[0]
+    + '?aikey='   + encodeURIComponent(a.key)
+    + '&aiurl='   + encodeURIComponent(a.baseUrl||'https://api.deepseek.com')
+    + '&aimodel=' + encodeURIComponent(a.model||'deepseek-flash');
 };
 /* 状态条：不用点也能一眼看到现在是什么情况
    顶栏那个小灯也一起刷 —— 不然在阅读页点了 AI 才发现没配，还得猜为什么 */
