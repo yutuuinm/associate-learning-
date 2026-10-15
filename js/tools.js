@@ -447,7 +447,9 @@ T.translateSel = function(){
   if(box) box.classList.add('on');
   C.aiTranslate(txt).then(function(zh){
     var el = C.$('tt'); if(!el) return;
-    if(!zh){ el.innerHTML = '<div class="selhd">翻译失败</div><div class="selpairs"><div class="selp"><div class="sz mut">检查一下 AI 接口配置。</div></div></div>'; return }
+    if(!zh){ el.innerHTML = '<div class="selhd">翻译失败</div><div class="selpairs"><div class="selp"><div class="sz mut">'
+      + C.esc(C.aiErrText(C.aiLastErr) || '检查一下 AI 接口配置')
+      + '。去 <a href="#/settings">设置</a> 点「自检一下」看具体原因。</div></div></div>'; return }
     el.innerHTML = '<div class="selhd">AI 翻译</div><div class="selpairs"><div class="selp"><div class="se">' + C.esc(txt) +
       '</div><div class="sz">' + C.esc(zh) + '</div></div></div>';
   });
@@ -605,7 +607,8 @@ T.queryNote = function(){
 T.queryAI = function(w, ctx){
   C.aiAssist(w, ctx).then(function(o){
     var box = C.$('qai'); if(!box) return;
-    if(!o){ box.innerHTML = '<div class="tipbox">AI 没返回内容。检查设置里的接口地址、令牌和模型名。</div>'; return }
+    if(!o){ box.innerHTML = '<div class="tipbox"><b>AI 没返回内容。</b>' + esc(C.aiErrText(C.aiLastErr))
+      + '<br>去 <a href="#/settings">设置</a> 点「自检一下」看具体原因。</div>'; return }
     C.STATS.memSet(w, JSON.stringify(o));
     if(C.CLOUD && C.CLOUD.onMemory) C.CLOUD.onMemory(w, JSON.stringify(o));
     box.innerHTML = C.memCard(w, o);
@@ -618,7 +621,8 @@ T.queryExplain = function(){
   box.innerHTML = '<div class="hint">AI 正在拆…</div>';
   C.aiExplain(txt).then(function(o){
     var el = C.$('qai'); if(!el) return;
-    if(!o){ el.innerHTML = '<div class="tipbox">AI 没返回内容。</div>'; return }
+    if(!o){ el.innerHTML = '<div class="tipbox"><b>AI 没返回内容。</b>' + esc(C.aiErrText(C.aiLastErr))
+      + '<br>去 <a href="#/settings">设置</a> 点「自检一下」看具体原因。</div>'; return }
     T._q.zh = o.zh || '';
     var h = '';
     if(o.main) h += '<div class="qrow"><b>主干</b><span>' + esc(o.main) + '</span></div>';
