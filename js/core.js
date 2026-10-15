@@ -13,7 +13,7 @@ var DEF = {
   assist:2,        // 0 关（模拟考试）1 只给方向 2 方向+定位 3 全开（含解析）
   instant:true,    // 即时反馈（学习模式）
   wordGoal:50,     // 每天要从文章里收下多少个生词
-  ai:{enabled:false, baseUrl:'https://api.deepseek.com', key:'', model:'deepseek-v4-flash'},
+  ai:{enabled:false, baseUrl:'https://api.deepseek.com', key:'', model:'deepseek-flash'},
   aiUse:{memory:true, translate:true, define:true}   // AI 的三个用途可分别开关
 };
 C.settings = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY)||'{}'));
@@ -56,20 +56,44 @@ C.cacheWord=function(w,def){
 
 /* ---------- AI 接口（可选） ---------- */
 C.aiReady=function(){var a=C.settings.ai; return !!(a&&a.enabled&&a.baseUrl&&a.key)};
+/* 一次对话。三个坑都在这里兜住了：
+   1) 思考型模型（DeepSeek V4 系列默认会先"想"一段）会把 max_tokens 全部烧在推理上，
+      正文返回空字符串 —— 所以给 token 设下限，并且默认关掉思考；
+   2) 不是所有接口都认 thinking 字段，报 400 且提到 thinking 就摘掉再试一次；
+   3) 正文仍然为空时，把 token 翻三倍重试一次，再不行才算失败。 */
+function aiPost(body){
+  var a=C.settings.ai;
+  return fetch(a.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+a.key},
+    body:JSON.stringify(body)
+  }).then(function(r){
+    return r.text().then(function(t){ return {ok:r.ok, status:r.status, text:t} });
+  });
+}
+function aiPick(text){
+  try{
+    var j=JSON.parse(text);
+    var m=j&&j.choices&&j.choices[0]&&j.choices[0].message;
+    return m ? String(m.content||'').trim() : '';
+  }catch(e){ return '' }
+}
 C.aiChat=async function(prompt, maxTok){
   if(!C.aiReady()) return null;
   var a=C.settings.ai;
+  var tok=Math.max(parseInt(maxTok,10)||0, 600);          /* 下限 600：60 太容易被推理吃光 */
+  var base={model:a.model||'deepseek-flash', messages:[{role:'user',content:prompt}],
+            temperature:0.3, max_tokens:tok};
   try{
-    var r=await fetch(a.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+a.key},
-      body:JSON.stringify({model:a.model||'gpt-4o-mini',messages:[{role:'user',content:prompt}],
-        temperature:0.3,max_tokens:maxTok||200})
-    });
+    var r=await aiPost(Object.assign({thinking:{type:'disabled'}}, base));
+    if(!r.ok && r.status===400 && /thinking/i.test(r.text)) r=await aiPost(base);
     if(!r.ok) return null;
-    var j=await r.json();
-    var t=j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
-    return t?String(t).trim():null;
+    var s=aiPick(r.text);
+    if(!s && tok<4000){
+      r=await aiPost(Object.assign({thinking:{type:'disabled'}}, base, {max_tokens:tok*3}));
+      if(r.ok) s=aiPick(r.text);
+    }
+    return s||null;
   }catch(e){ return null }
 };
 /* 词典没有时，用 AI 补释义 */
