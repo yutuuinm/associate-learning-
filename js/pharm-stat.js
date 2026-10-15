@@ -17,8 +17,9 @@ function today(){ var d=new Date(); return d.getFullYear()+'-'+p2(d.getMonth()+1
 function p2(n){ return n<10?('0'+n):(''+n) }
 Q.today = today;
 
-function get(k, d){ try{ var v = localStorage.getItem(k); return v==null?d:JSON.parse(v) }catch(e){ return d } }
-function set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} }
+/* 走 C.get/C.set：登录后会带上账号前缀，药学的数据也就跟着账号走了 */
+function get(k, d){ return (window.CET6 && window.CET6.get) ? window.CET6.get(k, d) : d }
+function set(k, v){ if(window.CET6 && window.CET6.set) window.CET6.set(k, v) }
 
 /* ============ 章节 / 科目映射 ============ */
 var MAP = {};   // chId -> {c:courseKey, n:courseName, t:章名}
@@ -190,7 +191,10 @@ Q.tot = function(){
 
 /* ============ 重置 ============ */
 Q.wipe = function(){
-  [K_LOG, K_CH, K_WR, K_MK, K_DAY].forEach(function(k){ try{ localStorage.removeItem(k) }catch(e){} });
+  [K_LOG, K_CH, K_WR, K_MK, K_DAY].forEach(function(k){
+    if(window.CET6 && window.CET6.del) window.CET6.del(k);
+    else try{ localStorage.removeItem(k) }catch(e){}
+  });
 };
 /* 导出（供设置页备份） */
 Q.dump = function(){
