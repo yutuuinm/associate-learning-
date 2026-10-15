@@ -7,14 +7,25 @@ var KEY='cet6_settings_v1', PKEY='cet6_profile_v1', DCACHE='cet6_dictcache_v1';
 
 /* ---------- 设置 ---------- */
 var DEF = {
-  hoverTip:true,   // 鼠标移到词上给提示
+  hoverTip:true,   // 鼠标移到词上给提示（总开关）
+  hoverMode:2,     // 0 完全不显示 1 只显示这个词的释义 2 词释义 + 整句译文
+  hoverDelay:0,    // 0 立刻显示；>0 则需停留 N 毫秒（避免扫读时一直弹）
   assist:2,        // 0 关（模拟考试）1 只给方向 2 方向+定位 3 全开（含解析）
   instant:true,    // 即时反馈（学习模式）
-  ai:{enabled:false, baseUrl:'https://api.openai.com/v1', key:'', model:'gpt-4o-mini'}
+  wordGoal:50,     // 每天要从文章里收下多少个生词
+  ai:{enabled:false, baseUrl:'https://api.deepseek.com', key:'', model:'deepseek-v4-flash'},
+  aiUse:{memory:true, translate:true, define:true}   // AI 的三个用途可分别开关
 };
 C.settings = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY)||'{}'));
 if(!C.settings.ai) C.settings.ai = Object.assign({}, DEF.ai);
+if(!C.settings.aiUse) C.settings.aiUse = Object.assign({}, DEF.aiUse);
+if(C.settings.hoverMode == null) C.settings.hoverMode = C.settings.hoverTip ? 2 : 0;
 C.saveSettings = function(){ localStorage.setItem(KEY, JSON.stringify(C.settings)) };
+/* 划词提示到底显示到什么程度：0 不显示 1 只词义 2 词义+整句 */
+C.hoverMode = function(){
+  if(!C.settings.hoverTip) return 0;
+  return Number(C.settings.hoverMode == null ? 2 : C.settings.hoverMode) || 0;
+};
 
 /* ---------- 工具 ---------- */
 C.$=function(i){return document.getElementById(i)};
@@ -68,11 +79,92 @@ C.aiDefine=async function(word, ctx){
   return out;
 };
 
+/* AI 助记：一次性把这个词的"怎么记 + 怎么用"全要回来
+   返回 {def, root, tip, colloc[], ex, exZh, fill, fillZh} —— 少一项也不影响渲染 */
+C.aiAssist = async function(word, ctx){
+  var p = '你是大学英语六级/考研英语的词汇老师。为一个中国学生讲解单词 "' + word + '"。'
+    + (ctx ? ('它出现的原句：' + ctx + '\n') : '')
+    + '只输出 JSON（不要 markdown 代码块、不要任何解释），字段：\n'
+    + '{"def":"中文释义，12 字以内","root":"词根词缀拆解，没有就写 无",'
+    + '"tip":"一句好记的助记法（联想/谐音/对比），25 字以内",'
+    + '"colloc":["常用搭配1","常用搭配2"],'
+    + '"ex":"一个六级难度的英文例句，包含该词",'
+    + '"exZh":"这句例句的中文翻译",'
+    + '"fill":"把 ex 里的该词换成 ______ 后的句子",'
+    + '"fillZh":"填空句的中文"}';
+  var raw = await C.aiChat(p, 500);
+  if(!raw) return null;
+  var o = null;
+  try{
+    var s = String(raw).replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+    var a = s.indexOf('{'), b = s.lastIndexOf('}');
+    o = JSON.parse(s.slice(a, b+1));
+  }catch(e){ o = null }
+  if(!o) o = {def: String(raw).slice(0, 60)};
+  o.colloc = Array.isArray(o.colloc) ? o.colloc.slice(0,4) : [];
+  o.raw = raw;
+  return o;
+};
+
 /* 整段翻译：没有内置译文时的兜底 */
 C.aiTranslate = async function(text){
   var out = await C.aiChat('你是大学英语六级考试的翻译助手。把下面这段英文翻成通顺的中文。' +
     '要求：忠实原文、语序自然、专有名词保留英文。只输出译文，不要任何说明、不要加标题。\n\n' + text, 900);
   return out;
+};
+
+/* 让 AI 拆一段话：主干 / 修饰 / 生词 / 翻译
+   用于摘抄本里的长难句，也用于查词面板里粘进来的整句 */
+C.aiExplain = async function(text){
+  var p = '你是大学英语六级阅读辅导老师。把下面这段英文讲给一个中国学生听。'
+    + '只输出 JSON（不要 markdown 代码块、不要任何解释），字段：\n'
+    + '{"main":"句子主干（主语+谓语+宾语），用中文说明谁做了什么",'
+    + '"mods":["修饰成分 / 从句分别修饰谁，逐条写"],'
+    + '"zh":"整段的中文翻译，通顺自然",'
+    + '"words":[{"w":"值得记的生词或短语","zh":"它在这句里的意思"}]}\n'
+    + 'mods 最多 6 条，words 最多 6 个，只挑六级 / 考研会考的，不要罗列简单词。\n\n'
+    + String(text||'').slice(0, 1500);
+  var raw = await C.aiChat(p, 900);
+  if(!raw) return null;
+  var o = null;
+  try{
+    var s = String(raw).replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+    o = JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}')+1));
+  }catch(e){ o = null }
+  if(!o) o = {zh: String(raw).slice(0, 500)};
+  o.mods  = Array.isArray(o.mods)  ? o.mods.slice(0,6)  : [];
+  o.words = Array.isArray(o.words) ? o.words.slice(0,6) : [];
+  o.raw = raw;
+  return o;
+};
+
+/* 助记卡片的渲染（今日新词页与查词面板共用一份，避免两处样式跑偏）
+   o 可以是 aiAssist 返回的对象，也可以是它序列化后的字符串 */
+C.memCard = function(w, o){
+  if(typeof o === 'string'){
+    try{
+      var s = o.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+      o = JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}')+1));
+    }catch(e){ o = {def:o} }
+  }
+  if(!o || typeof o !== 'object') return '<div class="tipbox">AI 没返回可用的内容。</div>';
+  if(o.def && !o.root && !o.tip && !o.ex){
+    return '<div class="tipbox">' + C.esc(String(o.def).slice(0,300)) + '</div>';
+  }
+  var inBook = !!(C.STATS && C.STATS.srsAll()[String(w||'').toLowerCase()]);
+  var h = '<div class="mem">';
+  if(o.def) h += '<div class="mrow"><b>义</b><span>' + C.esc(o.def) + '</span></div>';
+  if(o.root && o.root !== '无') h += '<div class="mrow"><b>拆</b><span>' + C.esc(o.root) + '</span></div>';
+  if(o.tip) h += '<div class="mrow"><b>记</b><span>' + C.esc(o.tip) + '</span></div>';
+  if(o.colloc && o.colloc.length) h += '<div class="mrow"><b>配</b><span>' + C.esc(o.colloc.join(' · ')) + '</span></div>';
+  if(o.ex) h += '<div class="mrow"><b>例</b><span><div>' + C.esc(o.ex) + '</div><div class="exzh">' + C.esc(o.exZh||'') + '</div></span></div>';
+  if(o.fill) h += '<div class="mrow"><b>练</b><span>' + C.esc(o.fill) + '</span></div>';
+  var foot = inBook
+    ? '<button class="sm" onclick="CET6.trainWord(\'' + C.esc(w) + '\')">拿这句练填空</button>'
+    : '<button class="sm primary" onclick="CET6.TOOLS.addWord(\'' + C.esc(w) + '\')">先收进生词本，再练填空</button>';
+  h += '<div class="mrow"><b></b><span>' + foot + ' <span class="hint">AI 生成，例句自己再对一遍原文</span></span></div>';
+  h += '</div>';
+  return h;
 };
 
 /* ---------- 可划词 HTML ---------- */
@@ -102,12 +194,14 @@ C.srcLabel=function(){
   return '';
 };
 
-/* ---------- 划词提示引擎（全局委托） ---------- */
-var lastWord=null;
-document.addEventListener('mouseover',function(e){
-  if(!C.settings.hoverTip) return;
-  var t=e.target;
-  if(!t||!t.classList) return;
+/* ---------- 划词提示引擎（全局委托） ----------
+   显示到什么程度由 hoverMode 决定：
+   0 完全不显示（想练纯英文阅读时用） 1 只给这个词的释义 2 词义 + 整句译文
+   hoverDelay > 0 时要停留够毫秒才弹，避免正常扫读时一直跳出来 */
+var lastWord=null, hoverTimer=null;
+function clearHover(){ if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null } }
+function hideTip(){ var el=C.$('tip'); if(el) el.style.display='none' }
+function doHover(e, t, mode){
   if(t.classList.contains('w')){
     C.lastWord = String(t.textContent||'').toLowerCase().replace(/[^a-z-]/g,'');
     C.lastWordNode = t;
@@ -131,18 +225,30 @@ document.addEventListener('mouseover',function(e){
       }
     }
   }
+  if(mode < 2) return;                 /* 只要词义时，不给整句译文 */
   var s=t.classList.contains('s')?t:(t.closest?t.closest('.s,.loc'):null);
   if(s){
     var z=s.getAttribute('data-t');
     var tt=C.$('tt');
     if(z&&tt){ tt.innerHTML=C.esc(z); tt.className='' }
   }
+}
+document.addEventListener('mouseover',function(e){
+  var mode=C.hoverMode();
+  if(!mode) return;
+  var t=e.target;
+  if(!t||!t.classList) return;
+  if(t.id==='tip'||t.id==='selbar') return;
+  clearHover();
+  var d=Number(C.settings.hoverDelay||0);
+  if(d>0){
+    hoverTimer=setTimeout(function(){ hoverTimer=null; doHover(e,t,mode) }, d);
+  }else doHover(e,t,mode);
 });
 document.addEventListener('mouseout',function(e){
+  clearHover();
   var t=e.target;
-  if(t&&t.classList&&t.classList.contains('w')){
-    var tipEl=C.$('tip'); if(tipEl) tipEl.style.display='none';
-  }
+  if(t&&t.classList&&t.classList.contains('w')) hideTip();
 });
 C.showTip=function(el,word,def,tag,e){
   el.innerHTML='<div class="tw">'+C.esc(word)+'</div><div class="tc">'+C.esc(def)+'</div>'+(tag?'<div class="ai">AI 生成</div>':'');
