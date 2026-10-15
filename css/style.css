@@ -69,6 +69,19 @@ p{margin:0 0 10px}
 .side a.on svg{opacity:1;color:#93B4FF}
 .side a .cnt{margin-left:auto;font-size:11px;background:rgba(255,255,255,.10);padding:1px 6px;border-radius:20px;color:#CBD5E1}
 .side a.on .cnt{background:rgba(147,180,255,.22);color:#DBE7FF}
+.side a .cnt.ok{background:#15803D;color:#fff}
+
+/* 今日新词：助记卡片 + 填空练习 */
+.mem{background:var(--pubg);border:1px solid #DDD6FE;border-radius:8px;padding:8px 10px;margin-top:8px}
+.mem .mrow{display:flex;gap:8px;font-size:12.5px;line-height:1.75}
+.mem .mrow b{flex:0 0 auto;color:var(--pu);width:14px}
+.mem .mrow span{flex:1;color:var(--ink2)}
+.mem .exzh{color:var(--mut);font-size:12px}
+.train{background:var(--brand-l);border:1px solid var(--brand-b);border-radius:8px;padding:9px 11px;margin-top:8px}
+.train .th{font-size:11.5px;font-weight:600;color:var(--brand-d);margin-bottom:5px}
+.train .ten{font-size:14px;line-height:1.8}
+.train .tzh{font-size:12.5px;color:var(--mut);margin-top:3px}
+.wgoal{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sidefoot{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.07)}
 .sidefoot .mini{font-size:11.5px;color:#5F7189;line-height:1.6}
 .examsw{display:flex;gap:6px;padding:0 12px 6px}
@@ -377,6 +390,7 @@ pre{background:#F7F9FC;border:1px solid var(--line2);padding:12px;border-radius:
 #selbar{
   position:fixed;z-index:320;transform:translate(-50%,-100%);display:none;gap:2px;
   background:#111827;border-radius:9px;padding:3px;box-shadow:0 6px 20px rgba(0,0,0,.22);align-items:center;
+  max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center;
 }
 #selbar::after{
   content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
@@ -542,6 +556,116 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
 }
 .chip:hover{border-color:var(--brand-b);color:var(--brand-d)}
 .chip.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:500}
+
+/* 词汇训练：文章页"这篇覆盖的核心词" */
+.vcov{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.vcovhd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.vcovhd b{font-size:13.5px}
+.vcovhd .hint{font-size:12px}
+.vcovrow{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-bottom:7px}
+.vcovrow .tag{flex:0 0 auto;margin-top:2px}
+.vw{
+  display:inline-flex;align-items:baseline;gap:5px;background:var(--brand-l);
+  border:1px solid var(--brand-b);border-radius:14px;padding:2px 9px 2px 2px;
+}
+.vw .wbtn{
+  border:0;background:transparent;color:var(--brand-d);font-weight:600;
+  font-size:12.5px;cursor:pointer;padding:2px 5px;border-radius:12px;
+}
+.vw .wbtn:hover{background:var(--brand);color:#fff}
+.vw .d{font-size:11.5px;color:var(--ink2)}
+.w.vhl{background:var(--wnbg);border-bottom:2px solid var(--wn);font-weight:600}
+
+/* 句级翻译：每句右侧的「译」 + 就地对照 */
+.passage .sp{position:relative;padding-right:30px}
+.passage .pt{
+  position:absolute;right:0;top:2px;opacity:0;transition:.15s;
+  border:1px solid var(--line);background:#fff;color:var(--mut);
+  font-size:11px;line-height:1;padding:3px 5px;border-radius:5px;cursor:pointer;
+}
+.passage .sp:hover .pt{opacity:1}
+.passage .pt:hover{border-color:var(--brand-b);color:var(--brand-d)}
+.sent-zh.inl{
+  display:block;margin:6px 0 2px;padding:7px 10px;background:var(--brand-l);
+  border-left:3px solid var(--brand-b);border-radius:0 6px 6px 0;
+}
+.sent-zh.inl .selpairs{margin:0}
+.selwd{
+  font-size:12.5px;color:var(--ink2);background:#fff;border:1px solid var(--line);
+  border-radius:6px;padding:5px 9px;margin-bottom:7px;
+}
+.selwd b{color:var(--brand-d)}
+
+/* 找答案：选项排雷标签 + 分布 */
+.otag{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:1px}
+.otag.bad{background:var(--erbg);color:var(--er);border:1px solid var(--erln)}
+.otag.warn{background:var(--wnbg);color:var(--wn);border:1px solid var(--wnln)}
+.otag.good{background:var(--okbg);color:var(--ok);border:1px solid var(--okln)}
+.otag.mid{background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand-b)}
+.solve{margin-top:10px;border:1px solid var(--brand-b);border-radius:8px;background:var(--brand-l);padding:10px 12px}
+.solve .sd{font-size:13px;line-height:1.75;margin-bottom:6px}
+.solve .sd b{color:var(--brand-d)}
+.solve .kw{background:#fff;border:1px dashed var(--brand-b);border-radius:4px;padding:0 3px;font-weight:600}
+.sdist{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}
+.sdist .sdbox{display:inline-flex;align-items:center;gap:3px}
+.sdist .sdbar{display:inline-block;height:8px;background:var(--brand);border-radius:2px;vertical-align:middle}
+.optpick{border-style:dashed}
+
+/* ================= 查词面板（单词释义 / 整句拆解 / 一键入表） ================= */
+#query{
+  position:fixed;inset:0;z-index:420;background:rgba(15,23,42,.42);
+  display:none;align-items:flex-start;justify-content:center;padding:64px 16px 16px;
+}
+#query .qbox{
+  background:#fff;border-radius:14px;box-shadow:var(--sh2);
+  width:100%;max-width:660px;max-height:calc(100vh - 96px);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#query .qtop{display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid var(--line)}
+#query .qtop .qlbl{font-size:13px;font-weight:600;color:var(--brand-d);flex:0 0 auto}
+#query .qtop input{
+  flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px 11px;
+  font:inherit;font-size:14px;background:var(--bg);
+}
+#query .qtop input:focus{outline:none;border-color:var(--brand-b);background:#fff}
+#query .qout{padding:14px 16px;overflow:auto}
+#query .qtip{margin:0;padding:0 16px 14px;font-size:12px;color:var(--mut2)}
+.qempty{font-size:13.5px;color:var(--ink2);line-height:1.9}
+.qhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--line2);margin-bottom:10px}
+.qhd b{font-size:15px;word-break:break-word}
+.qkind{font-size:11px;font-weight:600;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand-b);border-radius:10px;padding:1px 8px}
+.qsec{margin-bottom:12px}
+.qsec .sh{font-size:11.5px;font-weight:600;color:var(--mut);margin-bottom:6px;letter-spacing:.02em}
+.qdef{font-size:15px;color:var(--ink);background:var(--brand-l);border-radius:8px;padding:8px 11px}
+.qdef.mut{color:var(--mut);background:var(--line2)}
+.qctx{font-size:12.5px;color:var(--ink2);margin-top:7px;line-height:1.7}
+.qctx b{color:var(--brand-d);margin-right:5px}
+.qrow{display:flex;gap:9px;font-size:13.5px;line-height:1.8;margin-bottom:6px;align-items:flex-start}
+.qrow>b{flex:0 0 34px;color:var(--brand-d);font-weight:600;font-size:12.5px;background:var(--brand-l);border-radius:5px;text-align:center;padding:1px 0;margin-top:3px}
+
+/* ================= 摘抄本 ================= */
+.card.note{padding:14px 16px}
+.notehd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.notehd .sm{padding:2px 9px;font-size:11.5px}
+.notebody{font-size:15px;line-height:1.95;color:var(--ink);cursor:auto}
+.notebody .w{cursor:help}
+.notezh{
+  margin-top:8px;padding:8px 11px;background:var(--brand-l);border-left:3px solid var(--brand-b);
+  border-radius:0 7px 7px 0;font-size:13.5px;color:var(--ink2);line-height:1.8;
+}
+.vw i{font-style:normal;font-size:9.5px;opacity:.55;margin-left:3px;vertical-align:1px}
+
+/* 可点的词块（查词面板 / 摘抄本里的核心词）：点一下就收进生词本 */
+.wcrow{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
+.wc{
+  display:inline-flex;align-items:baseline;gap:4px;cursor:pointer;
+  background:var(--brand-l);border:1px solid var(--brand-b);border-radius:14px;
+  padding:2px 10px;font-size:12.5px;font-weight:600;color:var(--brand-d);
+  transition:.12s;
+}
+.wc:hover{background:var(--brand);border-color:var(--brand);color:#fff}
+.wc:hover i{opacity:.85}
+.wc i{font-style:normal;font-size:9.5px;font-weight:400;opacity:.6}
 
 /* 响应式 */
 @media(max-width:900px){
