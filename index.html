@@ -42,6 +42,7 @@
       <a href="#/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cWrong">0</span></a>
       <a href="#/stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>数据分析</a>
       <div class="grp">系统</div>
+      <a href="#/account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>账号<span class="cnt" id="cAcc">登录</span></a>
       <a href="#/import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>导入题目</a>
       <a href="#/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
     </div>
@@ -102,6 +103,7 @@
         <span class="pill" id="pMaster" title="掌握度">掌握度 —</span>
         <a class="pill" href="#/p/wrong" id="pWrong" title="错题本" style="text-decoration:none">错题 0</a>
       </div>
+      <span class="kbtn" id="accLamp" onclick="location.href='#/account'" title="账号，点开登录或切换">账号</span>
       <span class="kbtn" id="aiLamp" onclick="location.href='#/settings'" title="AI 状态，点开去设置页自检">AI</span>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.queryOpen()" title="查词（/）：单词查释义、整句拆句子">查词</span>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
@@ -153,6 +155,7 @@
 <script src="js/bank-more.js"></script>
 <script src="js/assess.js"></script>
 <script src="js/core.js"></script>
+<script src="js/account.js"></script>
 <!-- 本机专用：自动填入 AI 接口配置（含密钥，不上传；换成线上时请删掉这一行或用一次性链接配置） -->
 <script src="js/cloud.js"></script>
 <script src="js/stats.js"></script>
