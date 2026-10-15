@@ -1545,14 +1545,14 @@ function renderSettings(){
   h+='<label class="chk"><input type="checkbox" id="aiOn"'+(a.enabled?' checked':'')+'>启用 AI</label>';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">';
   h+='<span class="hint" style="align-self:center">一键填入：</span>';
-  [['deepseek','DeepSeek'],['gemini','Gemini'],['openai','OpenAI'],['glm','智谱 GLM']].forEach(function(p){
+  [['deepseek','DeepSeek Flash'],['dskpro','DeepSeek Pro'],['gemini','Gemini'],['openai','OpenAI'],['glm','智谱 GLM']].forEach(function(p){
     h+='<button class="sm" onclick="CET6.presetAI(\''+p[0]+'\')">'+p[1]+'</button>';
   });
   h+='</div>';
   h+='<div class="tseg" style="margin:8px 0"><span>模型</span>'
    + '<input type="text" id="aiModel" list="aiModels" value="'+esc(a.model||'')+'" placeholder="选一个或自己填" style="width:auto;min-width:200px">'
    + '<datalist id="aiModels">'
-   + ['deepseek-v4-flash','deepseek-v4-pro','deepseek-chat','deepseek-reasoner',
+   + ['deepseek-flash','deepseek-v4-pro','deepseek-v4-flash',
       'gemini-flash-4.1','gemini-2.5-flash','gemini-2.5-pro','gpt-4o-mini','gpt-4o','glm-4-flash','qwen-plus']
        .map(function(m){ return '<option value="'+m+'">' }).join('')
    + '</datalist></div>';
@@ -1566,8 +1566,10 @@ function renderSettings(){
    + '</datalist></div>';
   h+='<div class="row"><label class="f">API Key</label><input type="password" id="aiKey" value="'+esc(a.key||'')+'"></div>';
   h+='<p class="hint" style="margin:6px 0 10px">地址和模型名是配套的：点上面的「一键填入」自动配对，或者自己填（'
-   + 'DeepSeek = <code>https://api.deepseek.com</code> + <code>deepseek-v4-flash</code>）。'
-   + '注意旧模型名 <code>deepseek-chat</code> 已经停用，要写 <code>deepseek-v4-flash</code>。</p>';
+   + 'DeepSeek = <code>https://api.deepseek.com</code> + <code>deepseek-flash</code>）。'
+   + 'DeepSeek 现在的名字是 <code>deepseek-flash</code>（V4.1 Flash）和 <code>deepseek-v4-pro</code>；'
+   + '旧名 <code>deepseek-chat</code> / <code>deepseek-reasoner</code> 已停用，'
+   + '<code>deepseek-v4-flash</code> 只是个别名，能用但建议写 <code>deepseek-flash</code>。</p>';
   h+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
   h+='<label class="chk" style="margin:0"><input type="checkbox" id="aiU1"'+((s.aiUse&&s.aiUse.memory)!==false?' checked':'')+'>生成助记</label>';
   h+='<label class="chk" style="margin:0"><input type="checkbox" id="aiU2"'+((s.aiUse&&s.aiUse.define)!==false?' checked':'')+'>自动补释义</label>';
@@ -1608,7 +1610,8 @@ C.saveLearn=function(){
 };
 /* 常见接口的预设：只填地址和模型名，key 还是得自己粘 */
 var AI_PRESET = {
-  deepseek:{url:'https://api.deepseek.com', model:'deepseek-v4-flash', tip:'DeepSeek V4 Flash：快、便宜，助记和翻译够用'},
+  deepseek:{url:'https://api.deepseek.com', model:'deepseek-flash', tip:'DeepSeek V4.1 Flash：快、便宜，助记和翻译够用'},
+  dskpro:  {url:'https://api.deepseek.com', model:'deepseek-v4-pro', tip:'DeepSeek V4 Pro：拆长难句更稳，也贵一些'},
   gemini:  {url:'https://generativelanguage.googleapis.com/v1beta/openai/', model:'gemini-flash-4.1', tip:'Gemini Flash 4.1'},
   openai:  {url:'https://api.openai.com/v1', model:'gpt-4o-mini', tip:'OpenAI'},
   glm:     {url:'https://open.bigmodel.cn/api/paas/v4', model:'glm-4-flash', tip:'智谱 GLM'}
@@ -1622,7 +1625,7 @@ C.presetAI = function(k){
 };
 C.saveAI=function(){
   C.settings.ai={ enabled:$('aiOn').checked, baseUrl:$('aiUrl').value.trim(),
-    key:$('aiKey').value.trim(), model:$('aiModel').value.trim()||'deepseek-v4-flash' };
+    key:$('aiKey').value.trim(), model:$('aiModel').value.trim()||'deepseek-flash' };
   C.settings.aiUse={ memory:$('aiU1').checked, define:$('aiU2').checked, translate:$('aiU3').checked };
   C.saveSettings();
   var m=$('aiMsg'); m.textContent='已保存，测试中…';
