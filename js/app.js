@@ -11,7 +11,7 @@ function pct(x){ return Math.round(x*100) }
 var TITLES={home:'总览',assess:'能力测评',plan:'我的方案',bank:'题库',read:'仔细阅读',
   listen:'听力',match:'长篇匹配',cloze:'选词填空',vocab:'生词速记',wrong:'错题本',
   stats:'数据分析',import:'导入题目',settings:'设置',redo:'错题重做',method:'找答案手册',
-  words:'今日新词',notes:'摘抄本'};
+  words:'今日新词',notes:'摘抄本',account:'账号'};
 
 /* ---------- 考试切换（CET-6 / 349 药学综合） ---------- */
 C.exam = get('cet6_exam','cet6');
@@ -72,6 +72,7 @@ function route(){
   else if(view==='method') renderMethod();
   else if(view==='words') renderWords();
   else if(view==='notes') renderNotes();
+  else if(view==='account') renderAccount();
   else renderHome();
   window.scrollTo(0,0);
   markNav(view);
@@ -79,6 +80,7 @@ function route(){
   set('cet6_last', location.hash);
   T.refreshBadges();
   C.aiPaintStatus();          /* 顶栏 AI 灯每换一页都刷一次 */
+  C.accPaint();               /* 顶栏账号灯：现在是谁在学 */
 }
 function markNav(v){
   var as=document.querySelectorAll('#menuCet6 a');
@@ -1532,7 +1534,15 @@ function renderSettings(){
   h+='<label class="switch"><input type="checkbox" id="clAuto"'+(cfg&&cfg.auto?' checked':'')+'><i></i><span>改动后自动同步</span></label>';
   h+='<span class="pill '+(lb.c||'n')+'" id="clState">'+esc(lb.t)+'</span>';
   h+='<span class="hint" id="clLast">'+ (cfg&&cfg.last ? ('上次同步：'+new Date(cfg.last).toLocaleString('zh-CN')) : '还没同步过') +'</span>';
+  if(c && c.owner){
+    var own = c.owner();
+    h+='<span class="pill '+(own.indexOf('未登录')===0?'r':'g')+'">数据归属：'+esc(own)+'</span>';
+  }
   h+='</div>';
+  if(c && c.owner && c.owner().indexOf('未登录')===0){
+    h+='<p class="hint" style="margin:0 0 10px">现在<b>没登录</b>，同步的数据会落在公共区（谁都能看到）。'
+     + '去<a href="#/account">建个账号</a>再同步，数据才真的归你一个人。</p>';
+  }
   h+='<div class="row"><label class="f">项目 URL</label><input type="text" id="clUrl" value="'+esc(cfg?cfg.url:'')+'" placeholder="https://xxxx.supabase.co"></div>';
   h+='<div class="row"><label class="f">anon key</label><input type="password" id="clKey" value="'+esc(cfg?cfg.key:'')+'"></div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
@@ -1744,35 +1754,249 @@ C.pullCloud=function(){
     T.refreshBadges();
   });
 };
-var DATAKEYS=['cet6_settings_v1','cet6_profile_v1','cet6_dictcache_v1','cet6_imported',
-  'cet6_log_v1','cet6_srs_v1','cet6_day_v1','cet6_wrong_v1','cet6_goal_v1','cet6_reason_v1'];
+/* 备份 / 清空都只碰"当前账号名下"的数据：
+   导出时把前缀去掉存进文件，这样这份备份导到另一个账号（或另一台机器）也能用 */
+var KEEP={'cet6_accounts_v1':1,'cet6_session_v1':1};   /* 账号表和会话不属于任何人的学习数据 */
+C.dataKeys=function(){
+  var out=[], pre=(C.ns?C.ns():'')||'', i, k;
+  for(i=0;i<localStorage.length;i++){
+    k=localStorage.key(i); if(!k || KEEP[k]) continue;
+    if(pre){ if(k.indexOf(pre)===0) out.push(k) }        /* 登录后：只取自己名下的 */
+    else { if(k.indexOf('u:')!==0) out.push(k) }         /* 未登录：只取还没归属的 */
+  }
+  return out;
+};
 C.exportData=function(){
-  var o={}; DATAKEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) o[k]=v });
+  var pre=(C.ns?C.ns():'')||'', o={_v:1, _at:Date.now(), _account:(C.ACC&&C.ACC.cur()?C.ACC.cur().name:'')};
+  C.dataKeys().forEach(function(full){
+    var v=localStorage.getItem(full);
+    if(v!=null) o[full.slice(pre.length)]=v;
+  });
+  var n=Object.keys(o).length-1;
   var blob=new Blob([JSON.stringify(o,null,2)],{type:'application/json'});
   var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='cet6-backup-'+S.today()+'.json';
+  a.href=URL.createObjectURL(blob);
+  a.download='cet6-backup'+(o._account?('-'+o._account):'')+'-'+S.today()+'.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  T.toast('已导出');
+  T.toast('已导出 '+n+' 项'+(o._account?('（账号：'+o._account+'）'):''));
 };
 C.importData=function(){
   var m=$('dm');
   try{
     var o=JSON.parse($('impData').value);
-    Object.keys(o).forEach(function(k){ localStorage.setItem(k,o[k]) });
-    m.textContent='导入成功，正在刷新…';
+    var n=0;
+    Object.keys(o).forEach(function(k){
+      if(k.charAt(0)==='_') return;
+      localStorage.setItem(C.K(k), o[k]); n++;
+    });
+    m.textContent='导入成功（'+n+' 项），正在刷新…';
     setTimeout(function(){ location.reload() },800);
   }catch(e){ m.textContent='导入失败：'+e.message }
 };
 C.wipeLearn=function(){
-  if(!confirm('清空所有答题记录、生词本、错题本？测评结果保留。')) return;
-  S.wipeLearn(); localStorage.removeItem('cet6_reason_v1');
+  var who=C.ACC&&C.ACC.cur()?('账号「'+C.ACC.cur().name+'」的'):'';
+  if(!confirm('清空'+who+'所有答题记录、生词本、错题本？测评结果保留。')) return;
+  S.wipeLearn(); C.del('cet6_reason_v1');
+  if(C.PHARMSTAT && C.PHARMSTAT.wipe) { /* 药学的只清有记录的，不在这里一并清 */ }
   location.href='#/home'; location.reload();
 };
 C.wipe=function(){
-  if(!confirm('清空全部本地数据（含测评结果与导入的题）？')) return;
-  DATAKEYS.forEach(function(k){ localStorage.removeItem(k) });
-  localStorage.removeItem('cet6_reason_v1');
+  var who=C.ACC&&C.ACC.cur()?('账号「'+C.ACC.cur().name+'」的'):'';
+  if(!confirm('清空'+who+'全部本地数据（含测评结果与导入的题）？\n\n不会动其他账号的数据。')) return;
+  C.dataKeys().forEach(function(k){ localStorage.removeItem(k) });
   location.href='#/home'; location.reload();
+};
+
+/* ================= 账号：每个账号的数据分开存 ================= */
+function p2n(n){ return n<10?('0'+n):(''+n) }
+function fmtT(ts){ var d=new Date(ts); return d.getFullYear()+'-'+p2n(d.getMonth()+1)+'-'+p2n(d.getDate())+' '+p2n(d.getHours())+':'+p2n(d.getMinutes()) }
+/* 密码要跑 6 万轮哈希，会卡不到一秒 —— 先把提示画出来再算，否则界面像卡死了 */
+function heavy(fn){ T.toast('正在验证…', 3000); setTimeout(fn, 50) }
+
+function loginCard(title, pre, btn, fn){
+  var h='<div class="card"><h3>'+title+'</h3>'
+   + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+   + '<input type="text" id="'+pre+'Name" placeholder="账号名" style="width:auto;min-width:150px">'
+   + '<input type="password" id="'+pre+'Pwd" placeholder="密码" style="width:auto;min-width:150px">'
+   + '<button class="primary" onclick="'+fn+'">'+btn+'</button></div>'
+   + '<p class="hint" style="margin-top:8px">账号名 2–16 个字符，密码至少 6 位。</p></div>';
+  return h;
+}
+
+function renderAccount(){
+  var A=C.ACC||{}, u=A.cur?A.cur():null, h='', i;
+  h+='<div class="card"><h1 style="margin:0 0 6px">账号</h1>'
+   + '<p class="sub" style="margin:0">每个账号的学习数据<b>分开存放</b>——登录谁，看到的就是谁的进度、生词本和错题本。'
+   + '不登录也能用（数据就存在这台浏览器里）；登录之后，同一台机器换个人登录，也看不到你的东西。</p></div>';
+
+  var all = A.users?A.users():[];
+
+  if(u){
+    var n = A.dataCount?A.dataCount(u.id):0;
+    h+='<div class="card"><h3>当前账号</h3>'
+     + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline">'
+     + '<b style="font-size:18px">'+esc(u.name)+'</b><span class="pill g">已登录</span></div>'
+     + '<p class="hint" style="margin-top:8px">建于 '+fmtT(u.created||Date.now())+' · 名下 '+n+' 项数据'
+     + (C.CLOUD&&C.CLOUD.ready()?' · 云端同步会带上这个账号的标识':'')+'</p>'
+     + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
+     + '<button onclick="CET6.accLogout()">退出登录</button>'
+     + '<button onclick="CET6.accRename()">改账号名</button>'
+     + '<button onclick="location.href=\'#/home\'">回去学习</button>'
+     + '</div></div>';
+
+    h+='<div class="card"><h3>改密码</h3>'
+     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+     + '<input type="password" id="pwOld" placeholder="现在的密码" style="width:auto;min-width:140px">'
+     + '<input type="password" id="pwNew" placeholder="新密码" style="width:auto;min-width:140px">'
+     + '<button onclick="CET6.accPasswd()">改密码</button></div>'
+     + '<p class="hint" style="margin-top:8px">只存哈希和随机盐，明文密码不落盘 —— 所以忘了只能清掉重来，找不回来。</p></div>';
+
+    if(all.length>1){
+      h+='<div class="card"><h3>换一个人</h3>';
+      h+='<p class="hint" style="margin-top:0">这台机器上建过的账号（输密码才能切过去，防止随手点进别人那里）：</p>';
+      for(i=0;i<all.length;i++){
+        if(all[i].id===u.id) continue;
+        h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
+         + '<span style="min-width:120px">'+esc(all[i].name)+'</span>'
+         + '<input type="password" id="sw_'+all[i].id+'" placeholder="密码" style="width:auto;min-width:140px">'
+         + '<button class="sm" onclick="CET6.accSwitch(\''+all[i].id+'\')">切换</button>'
+         + '<span class="hint">'+(A.dataCount?A.dataCount(all[i].id):0)+' 项数据</span></div>';
+      }
+      h+='</div>';
+    }
+
+    h+='<div class="card"><h3 style="color:#B91C1C">删除这个账号</h3>'
+     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+     + '<input type="password" id="rmPwd" placeholder="输入密码确认" style="width:auto;min-width:140px">'
+     + '<button class="danger" onclick="CET6.accRemove()">连数据一起删掉</button></div>'
+     + '<p class="hint" style="margin-top:8px">会删掉这个账号名下的全部学习数据，其他账号不受影响。删完回到未登录状态。</p></div>';
+  }else{
+    h+=loginCard('登录','lg','登录','CET6.accLogin()');
+
+    h+='<div class="card"><h3>还没有账号？建一个</h3>'
+     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+     + '<input type="text" id="rgName" placeholder="账号名" style="width:auto;min-width:150px">'
+     + '<input type="password" id="rgPwd" placeholder="密码（至少 6 位）" style="width:auto;min-width:150px">'
+     + '<input type="password" id="rgPwd2" placeholder="再输一次" style="width:auto;min-width:150px">'
+     + '<button class="primary" onclick="CET6.accSignup()">建账号</button></div></div>';
+
+    if(all.length){
+      h+='<div class="card"><h3>这台机器上的账号</h3>';
+      for(i=0;i<all.length;i++){
+        h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
+         + '<span style="min-width:120px">'+esc(all[i].name)+'</span>'
+         + '<span class="hint">建于 '+fmtT(all[i].created||0)+' · '+(A.dataCount?A.dataCount(all[i].id):0)+' 项数据</span>'
+         + '<button class="sm" onclick="document.getElementById(\'lgName\').value=\''+esc(all[i].name)+'\';document.getElementById(\'lgPwd\').focus()">填进来</button>'
+         + '</div>';
+      }
+      h+='</div>';
+    }
+
+    var pend = A.pendingCount?A.pendingCount():0;
+    h+='<div class="card"><h3>登录会发生什么</h3>'
+     + '<p class="hint" style="margin-top:0">登录后，这台机器上会划出一块只属于这个账号的地方，之后收的词、做的题都记在他名下。'
+     + '现在还没归属的数据有 <b>'+pend+'</b> 项，第一次登录时会问你要不要一起搬过去。</p>'
+     + '<p class="hint">换设备、换浏览器不会自动跟过来 —— 用设置页的「导出 / 导入」搬，或者开云端同步。</p></div>';
+  }
+  $('app').innerHTML=h;
+}
+
+function val(id){ var e=$(id); return e?String(e.value||'').trim():'' }
+
+/* 登录后问一次：本机现有的（还没归属的）数据要不要归到这个账号 */
+function askAdopt(uid){
+  var pend = C.ACC.pendingCount?C.ACC.pendingCount():0;
+  if(!pend) return 0;
+  if(!confirm('这个账号名下还没有数据。\n\n要把这台机器上现有的 '+pend+' 项学习数据归到它名下吗？\n\n'
+    + '选「确定」= 搬过去（原处保留一份，不影响别的账号）；选「取消」= 从空白开始。')) return 0;
+  return C.ACC.adopt(uid);
+}
+
+C.accLogin=function(){
+  var n=val('lgName'), p=val('lgPwd');
+  if(!n||!p){ T.toast('账号名和密码都要填'); return }
+  heavy(function(){
+    var r=C.ACC.login(n,p);
+    if(!r.ok){ T.toast(r.err,3000); return }
+    var moved=askAdopt(r.uid);
+    T.toast(moved?('已把 '+moved+' 项数据归到「'+r.user.name+'」'):('已登录：'+r.user.name), 2500);
+    setTimeout(function(){ location.reload() }, 700);
+  });
+};
+C.accSignup=function(){
+  var n=val('rgName'), p=val('rgPwd'), p2=val('rgPwd2');
+  if(p!==p2){ T.toast('两次输入的密码不一样'); return }
+  heavy(function(){
+    var r=C.ACC.signup(n,p);
+    if(!r.ok){ T.toast(r.err,3000); return }
+    C.ACC.login(n,p);
+    var moved=askAdopt(r.uid);
+    T.toast(moved?('账号建好了，顺便把 '+moved+' 项数据归到它名下'):('账号建好了：'+r.user.name), 2500);
+    setTimeout(function(){ location.reload() }, 700);
+  });
+};
+C.accLogout=function(){
+  C.ACC.logout();
+  T.toast('已退出，现在看到的是未登录时的数据');
+  setTimeout(function(){ location.reload() }, 600);
+};
+C.accSwitch=function(uid){
+  var u=C.ACC.byId(uid); if(!u){ T.toast('找不到这个账号'); return }
+  var p=val('sw_'+uid);
+  if(!p){ T.toast('要先输入「'+u.name+'」的密码'); return }
+  heavy(function(){
+    var r=C.ACC.login(u.name,p);
+    if(!r.ok){ T.toast(r.err,3000); return }
+    askAdopt(r.uid);
+    T.toast('已切换到：'+r.user.name, 2500);
+    setTimeout(function(){ location.reload() }, 700);
+  });
+};
+C.accPasswd=function(){
+  var o=val('pwOld'), n=val('pwNew');
+  if(!o||!n){ T.toast('旧密码和新密码都要填'); return }
+  heavy(function(){
+    var r=C.ACC.passwd(o,n);
+    T.toast(r.ok?'密码已改':r.err, 3000);
+    if(r.ok) setTimeout(function(){ location.reload() }, 700);
+  });
+};
+C.accRename=function(){
+  var u=C.ACC.cur(); if(!u) return;
+  var n=prompt('新的账号名（2–16 个字符）：', u.name||'');
+  if(n==null) return;
+  var r=C.ACC.rename(n);
+  T.toast(r.ok?('已改名为：'+String(n).trim()):r.err, 3000);
+  if(r.ok) setTimeout(function(){ location.reload() }, 700);
+};
+C.accRemove=function(){
+  var u=C.ACC.cur(); if(!u) return;
+  var p=val('rmPwd');
+  if(!p){ T.toast('要输入密码才让删'); return }
+  if(!confirm('确定删除账号「'+u.name+'」？\n\n它名下的全部学习数据会一起删掉，删了找不回来。')) return;
+  heavy(function(){
+    var r=C.ACC.remove(p);
+    if(!r.ok){ T.toast(r.err,3000); return }
+    T.toast('账号已删除', 2500);
+    setTimeout(function(){ location.href='#/account'; location.reload() }, 700);
+  });
+};
+/* 顶栏账号灯 */
+C.accPaint=function(){
+  var el=$('accLamp'); if(!el) return;
+  var u=(C.ACC&&C.ACC.cur)?C.ACC.cur():null;
+  var c=$('cAcc');
+  if(u){
+    el.className='kbtn acc-on';
+    el.textContent=u.name;                 /* 太长由 CSS 截断，悬停能看全名 */
+    el.title='已登录：'+u.name+'（点开看账号与切换）';
+    if(c){ c.textContent=u.name; c.style.display='' }
+  }else{
+    el.className='kbtn acc-off';
+    el.textContent='登录';
+    el.title='还没登录（数据存在这台浏览器里）。点开可以建账号或登录';
+    if(c){ c.textContent='登录'; c.style.display='' }
+  }
 };
 
 /* 暴露给词汇训练模块复用（它自己不重复实现练习引擎） */
