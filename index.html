@@ -31,7 +31,13 @@
       <div class="grp">训练</div>
       <a href="#/bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>题库</a>
       <a href="#/listen/LL1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 17v-5a9 9 0 0 1 18 0v5"/><path d="M21 18.5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 18.5a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>讲座听力</a>
+      <div class="grp">词汇</div>
+      <a href="#/v/home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>词汇训练</a>
       <div class="grp">效率工具</div>
+      <a href="#/method"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 4 12.7V18a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3.3A7 7 0 0 1 12 2z"/><path d="M9 20h6"/></svg>找答案手册</a>
+      <a href="javascript:void(0)" onclick="CET6.TOOLS.queryOpen()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>查词<span class="cnt">/</span></a>
+      <a href="#/words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>今日新词<span class="cnt" id="cWords">0</span></a>
+      <a href="#/notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>摘抄本<span class="cnt" id="cNotes">0</span></a>
       <a href="#/vocab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>生词速记<span class="cnt" id="cDue">0</span></a>
       <a href="#/wrong"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>错题本<span class="cnt" id="cWrong">0</span></a>
       <a href="#/stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>数据分析</a>
@@ -69,10 +75,14 @@
       <div class="topsp"></div>
 
       <div id="topCet6" class="toptools">
-        <label class="switch" id="swHoverWrap">
-          <input type="checkbox" id="swHover" onchange="CET6.toggleHover(this.checked)"><i></i>
-          <span>划词提示</span>
-        </label>
+        <div class="tseg" id="swHoverWrap">
+          <span>划词翻译</span>
+          <select id="swHover" onchange="CET6.setHoverMode(+this.value)" title="鼠标移到词上时显示到什么程度">
+            <option value="0">不显示</option>
+            <option value="1">只词义</option>
+            <option value="2">词义+整句</option>
+          </select>
+        </div>
         <div class="tseg">
           <span>辅助</span>
           <select id="swAssist" onchange="CET6.setAssist(+this.value)">
@@ -92,6 +102,7 @@
         <span class="pill" id="pMaster" title="掌握度">掌握度 —</span>
         <a class="pill" href="#/p/wrong" id="pWrong" title="错题本" style="text-decoration:none">错题 0</a>
       </div>
+      <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.queryOpen()" title="查词（/）：单词查释义、整句拆句子">查词</span>
       <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
     </header>
 
@@ -101,10 +112,25 @@
 
 <div id="tip" style="display:none"></div>
 <div id="selbar" style="display:none">
-  <button data-a="word" onclick="CET6.TOOLS.addSel()">收词</button>
-  <button data-a="tr" onclick="CET6.TOOLS.translateSel()">翻译</button>
+  <button data-a="word" onclick="CET6.TOOLS.addSel()" title="快捷键 Tab">收词 <kbd>Tab</kbd></button>
+  <button data-a="note" onclick="CET6.TOOLS.saveSel()" title="把这段存进摘抄本">存摘抄</button>
+  <button data-a="query" onclick="CET6.TOOLS.querySel()" title="查词 / 拆句子（/）">查 <kbd>/</kbd></button>
+  <button data-a="tr" onclick="CET6.TOOLS.translateSel()" title="翻译（R）">翻译</button>
   <button data-a="cp" onclick="CET6.TOOLS.selCopy()">复制</button>
   <button data-a="x" onclick="CET6.hideSelBar()">✕</button>
+</div>
+<div id="query" style="display:none" onclick="CET6.TOOLS.queryClose()">
+  <div class="qbox" onclick="event.stopPropagation()">
+    <div class="qtop">
+      <span class="qlbl">查词</span>
+      <input id="qIn" autocomplete="off" spellcheck="false" placeholder="一个单词、一个短语，或者直接粘一整句进来"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();CET6.TOOLS.queryGo()}">
+      <button class="primary sm" onclick="CET6.TOOLS.queryGo()">查</button>
+      <span class="kbtn" onclick="CET6.TOOLS.queryClose()">✕</span>
+    </div>
+    <div id="qOut" class="qout"></div>
+    <p class="hint qtip">单词 → 词典 + 词根助记 + 例句，可以直接收进生词本；句子 → 翻译、拆主干、挑生词，可以存进摘抄本。</p>
+  </div>
 </div>
 <div id="trans">
   <div class="lbl">译文 <span id="ttx" style="display:none">· <a href="javascript:void(0)" onclick="CET6.TOOLS.clearTrans()">清空</a></span></div>
@@ -123,9 +149,12 @@
 <script src="js/dict.js"></script>
 <script src="js/bank-reading.js"></script>
 <script src="js/bank-other.js"></script>
+<script src="js/bank-more.js"></script>
 <script src="js/assess.js"></script>
 <script src="js/core.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/stats.js"></script>
+<script src="js/note.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/import.js"></script>
 <script src="js/pharm-org1.js"></script>
@@ -133,19 +162,46 @@
 <script src="js/pharm-org3.js"></script>
 <script src="js/pharm-ana.js"></script>
 <script src="js/pharm-bio.js"></script>
+<script src="js/vocab-cet6.js"></script>
+<script src="js/vocab-kaoyan.js"></script>
+<script src="js/solve.js"></script>
+<script src="js/vexam.js"></script>
 <script src="js/recite.js"></script>
 <script src="js/pharm-stat.js"></script>
 <script src="js/pharm.js"></script>
 <script src="js/app.js"></script>
 <script>
+  /* 一次性配置入口：用 URL 参数把接口信息带进来，存好就把地址栏清干净
+     index.html?aikey=...&aiurl=...&aimodel=...   —— 不想手填就打开一次这种链接 */
+  (function(){
+    try{
+      var q = new URLSearchParams(location.search);
+      var k = q.get('aikey') || q.get('ai');
+      var u = q.get('aiurl'), m = q.get('aimodel');
+      if(k || u || m){
+        var a = CET6.settings.ai || {};
+        if(k){ a.key = k; a.enabled = true }
+        if(u) a.baseUrl = u;
+        if(m) a.model = m;
+        CET6.settings.ai = a; CET6.saveSettings();
+        history.replaceState(null, '', location.pathname + location.hash);
+        console.log('AI 配置已写入本机');
+      }
+    }catch(e){}
+  })();
+
   (function(){
     var s = CET6.settings;
-    var h = document.getElementById('swHover'); if(h) h.checked = s.hoverTip;
+    var h = document.getElementById('swHover'); if(h){ if(h.tagName==='SELECT') h.value = String(CET6.hoverMode()); else h.checked = s.hoverTip }
     var i = document.getElementById('swInstant'); if(i) i.checked = s.instant;
     var a = document.getElementById('swAssist'); if(a) a.value = String(s.assist);
-    var hw = document.getElementById('swHoverWrap'); if(hw && s.hoverTip) hw.classList.add('on');
+    var hw = document.getElementById('swHoverWrap'); if(hw && CET6.hoverMode()) hw.classList.add('on');
     CET6.syncTop();
     CET6.TOOLS.refreshBadges();
+    /* 开了云端同步的话，进来先静默拉一次，别打断学习 */
+    if(CET6.CLOUD && CET6.CLOUD.ready() && CET6.CLOUD.cfg.auto){
+      setTimeout(function(){ CET6.CLOUD.sync(true) }, 1500);
+    }
   })();
 </script>
 </body>
