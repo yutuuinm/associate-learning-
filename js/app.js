@@ -10,7 +10,8 @@ function pct(x){ return Math.round(x*100) }
 /* ================= 路由 ================= */
 var TITLES={home:'总览',assess:'能力测评',plan:'我的方案',bank:'题库',read:'仔细阅读',
   listen:'听力',match:'长篇匹配',cloze:'选词填空',vocab:'生词速记',wrong:'错题本',
-  stats:'数据分析',import:'导入题目',settings:'设置',redo:'错题重做'};
+  stats:'数据分析',import:'导入题目',settings:'设置',redo:'错题重做',method:'找答案手册',
+  words:'今日新词',notes:'摘抄本'};
 
 /* ---------- 考试切换（CET-6 / 349 药学综合） ---------- */
 C.exam = get('cet6_exam','cet6');
@@ -45,6 +46,11 @@ function route(){
     if(C.exam!=='pharm'){ C.exam='pharm'; C.applyExam() }
     if(C.PHARMV){ C.PHARMV.route(p.slice(1)); set('cet6_last', location.hash); return }
   }
+  /* 词汇训练：#/v/...（六级 / 考研核心词） */
+  if(view==='v'){
+    if(C.exam!=='cet6'){ C.exam='cet6'; C.applyExam() }
+    if(C.VEXAM){ C.VEXAM.route(p.slice(1)); set('cet6_last', location.hash); return }
+  }
   if(C.exam!=='cet6'){ C.exam='cet6'; C.applyExam() }
 
   var app=$('app'); app.innerHTML='';
@@ -63,6 +69,9 @@ function route(){
   else if(view==='stats') renderStats();
   else if(view==='import') C.IMP.render();
   else if(view==='settings') renderSettings();
+  else if(view==='method') renderMethod();
+  else if(view==='words') renderWords();
+  else if(view==='notes') renderNotes();
   else renderHome();
   window.scrollTo(0,0);
   markNav(view);
@@ -84,12 +93,19 @@ C.route = route;
 
 C.syncTop = function(){
   var s=C.settings;
-  var hw=$('swHover'); if(hw) hw.checked=s.hoverTip;
-  var wr=$('swHoverWrap'); if(wr) wr.className='switch'+(s.hoverTip?' on':'');
+  var hw=$('swHover'); if(hw){ if(hw.tagName==='SELECT') hw.value=String(C.hoverMode()); else hw.checked=s.hoverTip }
+  var wr=$('swHoverWrap'); if(wr) wr.className='switch'+(C.hoverMode()?' on':'');
   var i=$('swInstant'); if(i) i.checked=s.instant;
   var a=$('swAssist'); if(a) a.value=String(s.assist);
 };
 C.toggleHover=function(v){ C.settings.hoverTip=v; C.saveSettings(); C.syncTop() };
+/* 划词显示到什么程度：0 不显示 1 只词义 2 词义 + 整句译文 */
+C.setHoverMode=function(v){
+  C.settings.hoverMode=+v || 0;
+  C.settings.hoverTip = C.settings.hoverMode > 0;
+  C.saveSettings(); C.syncTop();
+  T.toast(['划词翻译已关闭：纯英文阅读','只看单词释义','看单词释义 + 整句译文'][C.settings.hoverMode]);
+};
 C.setAssist=function(v){ C.settings.assist=v; C.saveSettings(); route() };
 C.toggleInstant=function(v){ C.settings.instant=v; C.saveSettings() };
 
@@ -148,6 +164,7 @@ function renderHome(){
   var d=S.day(), goal=S.goal(), st=S.streak();
   h+='<div class="grid" style="margin-top:16px">';
   h+='<div class="mc"><div class="l">今日题量</div><div class="v">'+d.q+'<span style="font-size:14px;color:#94A3B8"> / '+goal+'</span></div><div class="bar" style="margin-top:6px"><i style="width:'+Math.min(100,d.q/goal*100)+'%"></i></div></div>';
+  h+='<div class="mc click" onclick="location.href=\'#/words\'"><div class="l">今日生词</div><div class="v">'+S.dayWordCount()+'<span style="font-size:14px;color:#94A3B8"> / '+S.wordGoal()+'</span></div><div class="bar" style="margin-top:6px"><i style="width:'+Math.min(100,S.dayWordCount()/S.wordGoal()*100)+'%"></i></div><div class="u">选中词按 Tab 收割</div></div>';
   h+='<div class="mc"><div class="l">连续打卡</div><div class="v">'+st+'<span style="font-size:14px;color:#94A3B8"> 天</span></div><div class="u">断一天就归零，别断</div></div>';
   h+='<div class="mc"><div class="l">距考试</div><div class="v">'+daysLeft()+'</div><div class="u">12 月 12 日下午场</div></div>';
   h+='<div class="mc click" onclick="location.href=\'#/vocab\'"><div class="l">待复习生词</div><div class="v">'+S.srsDue().length+'</div><div class="u">共 '+S.srsCount().all+' 个 · 去复习</div></div>';
@@ -182,6 +199,7 @@ function renderHome(){
   h+='<div class="card tight"><h3 style="margin-top:0">题库</h3><p class="sub">内置仿真卷，题型分值与真题一致。</p><button class="primary" onclick="location.href=\'#/bank\'">进入题库</button></div>';
   h+='<div class="card tight"><h3 style="margin-top:0">错题本</h3><p class="sub">'+S.wrongList().length+' 道待消灭。做对两次自动毕业。</p><button onclick="location.href=\'#/wrong\'">去消灭</button></div>';
   h+='<div class="card tight"><h3 style="margin-top:0">导入题目</h3><p class="sub">有真题 PDF？拖进来就能变成题库。</p><button class="primary" onclick="location.href=\'#/import\'">去导入</button></div>';
+  h+='<div class="card tight"><h3 style="margin-top:0">找答案手册</h3><p class="sub">先题后文、同义替换、绝对词慎选——照着做的那套流程，看完直接练。</p><button onclick="location.href=\'#/method\'">去看手册</button></div>';
   h+='</div>';
 
   h+='<div class="card tight"><p class="sub" style="margin:0">真实六级真题受版权保护，本站不内置真题；内置的是按真题题型、分值、篇幅自编的仿真卷。你拿到真题后可用「导入题目」自己加进去。</p></div>';
@@ -383,6 +401,7 @@ function renderBank(){
   h+='<p class="sub" style="margin:8px 0 4px">做完一篇就复盘一篇。看解析时按 <kbd>E</kbd> 逐层揭开，先自己想再看答案。</p>';
   h+='<ul class="list">';
   B.readings.forEach(function(r){
+    if(r.vexam) return;                     /* 词汇训练的文章不混进六级题库 */
     var st=setStat(r.id, r.qs.length);
     h+='<li><span class="tag b">'+esc(r.topic||'阅读')+'</span><span class="g">'+esc(r.title)+'<div class="d">'+r.words+' 词 · '+r.qs.length+' 题'+(st.done?(' · 已做 '+st.done+' 题 对 '+st.ok):'')+'</div></span>';
     h+='<button class="sm" onclick="location.href=\'#/read/'+r.id+'\'">开始</button></li>';
@@ -451,10 +470,12 @@ function qBlock(q,pfx){
   h+='<div class="qhead"><span class="qno" id="qn_'+pfx+q.n+'">'+q.n+'</span>';
   h+='<div class="qtext">'+(showHint&&q.type?'<span class="qbadge k-'+q.type+'">'+C.TYPE[q.type].n+'</span>':'')+richHTML(q.q,true,false)+'</div>';
   h+='<div class="qacts">';
+  h+='<button class="sm primary" title="四步带你找到依据（F）" onclick="CET6.TOOLS.solveN('+q.n+')">找答案</button>';
   h+='<button class="sm" title="展开/收起本题解析（E）" onclick="CET6.TOOLS.revealN('+q.n+')">解析</button>';
   h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locateN('+q.n+')">定位</button>';
   h+='</div></div>';
   h+='<div id="hint_'+pfx+q.n+'">'+T.assistHTML(q)+'</div>';
+  h+='<div id="solve_'+pfx+q.n+'"></div>';
   h+='<div class="opts">';
   q.o.forEach(function(o,i){
     h+='<div class="opt" data-n="'+q.n+'" data-i="'+i+'"><span class="k">'+letter(i)+'</span><span>'+richHTML(o,false,showHint)+'</span><span class="kb">'+(i+1)+'</span></div>';
@@ -468,11 +489,15 @@ function pbarHTML(cfg){
   h+='<span class="sp" style="flex:1"></span>';
   h+='<button class="sm" title="上一题（K）" onclick="CET6.TOOLS.prev()">‹ 上题</button>';
   h+='<button class="sm" title="下一题（J）" onclick="CET6.TOOLS.next()">下题 ›</button>';
+  h+='<button class="sm primary" title="四步带你找到依据（F）" onclick="CET6.TOOLS.solve()">找答案</button>';
+  h+='<button class="sm" title="实在不会，按规律猜一个（G）" onclick="CET6.TOOLS.blindGuess(CET6.TOOLS.cur0())">猜一个</button>';
   h+='<button class="sm" title="展开/收起本题解析（E）" onclick="CET6.TOOLS.reveal()">解析</button>';
   h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locate(CET6.TOOLS.cur0())">定位原文</button>';
   h+='<button class="sm" title="整篇逐句翻译（T）" onclick="CET6.TOOLS.toggleZh()">逐句翻译</button>';
   h+='<button class="sm" title="把选中的词收进生词本（S）" onclick="CET6.TOOLS.addSel()">收词</button>';
   h+='<button class="sm" title="翻译划选的整段（R）" onclick="CET6.TOOLS.translateSel()">译选中</button>';
+  h+='<button class="sm" title="把选中的一段存进摘抄本" onclick="CET6.TOOLS.saveSel()">存摘抄</button>';
+  h+='<button class="sm" title="查词 / 拆句子（/）" onclick="CET6.TOOLS.querySel()">查词 <kbd>/</kbd></button>';
   h+='<button class="sm" onclick="CET6.TOOLS.kbd()">快捷键 <kbd>?</kbd></button>';
   h+='<button class="sm" onclick="CET6.clearAns()">清空</button></div>';
   return h;
@@ -510,6 +535,7 @@ function practice(cfg){
     pick(+el.getAttribute('data-n'), +el.getAttribute('data-i'));
   });
   T.bind({kind:cfg.kind, sid:cfg.sid, pfx:cfg.pfx, qs:cfg.qs, onPick:pick, onReveal:revealOne, onGrade:C.grade});
+  T.ansOf = function(){ return P ? P.ans : {} };   /* 「答案分布」这条规律要用 */
   T.startTimer(cfg.limit);
   if(cfg.after) cfg.after();
 }
@@ -611,6 +637,7 @@ C.grade=function(){
   $('app').insertAdjacentHTML('afterbegin',h);
   window.scrollTo(0,0);
   T.refreshBadges();
+  if(C.CLOUD) C.CLOUD.onAnswer();      /* 开了自动同步的话，交完卷顺手备份一次 */
 };
 function markOpts(q,got){
   var box=$('qsBox'); if(!box) return;
@@ -653,13 +680,17 @@ function renderRead(id){
   left+='<p class="hint" style="margin-bottom:10px">'+(r.words?r.words+' 词 · ':'')+qs.length+' 题 · 建议 '+(qs.length*2)+' 分钟内做完</p>';
   left+='<div class="passage">';
   r.text.forEach(function(p){
-    left+='<p>';
+    left+='<p class="sp">';
     if(Array.isArray(p)) left+=C.sentHTML(p[0],p[1]);
     else left+=C.sentHTML(p,p);
+    left+='<button class="pt" title="只看这一句的中文" onclick="CET6.TOOLS.trSent(this)">译</button>';
     left+='</p>';
   });
   left+='</div>';
-  left+='<p class="hint" style="margin-top:10px">鼠标划过单词看释义，划过句子看整段翻译；按 <kbd>T</kbd> 可展开全部译文。</p></div>';
+  left+='<p class="hint" style="margin-top:10px">每句右边的<b>「译」</b>只看那一句中文；<b>划选一段</b>再点浮动条的「翻译」可整段对照；按 <kbd>T</kbd> 一次展开全文译文。</p>';
+  /* 词汇训练的文章：底部列出这篇覆盖的核心词 */
+  if(r.vexam && C.VEXAM && C.VEXAM.coverCard) left+=C.VEXAM.coverCard(r);
+  left+='</div>';
   practice({kind:'read', sid:r.id, pfx:'r', two:true, left:left, qs:qs, limit:qs.length*120,
     note:'<span class="hint">每题 14.2 分</span>'});
 }
@@ -963,7 +994,11 @@ function renderWrong(){
 }
 function setMeta(sid){
   var t=sid, kindName='', href='';
-  B.readings.forEach(function(x){ if(x.id===sid){ t=x.title; kindName='仔细阅读'; href='#/read/'+sid } });
+  B.readings.forEach(function(x){ if(x.id===sid){
+    t=x.title;
+    if(x.vexam){ kindName=(x.vexam==='cet6'?'六级词汇文章':'考研词汇文章'); href='#/v/read/'+sid }
+    else { kindName='仔细阅读'; href='#/read/'+sid }
+  } });
   B.listening.forEach(function(x){ if(x.id===sid){ t=x.title; kindName=(x.kind==='lecture'?'讲座':(x.kind==='passage'?'篇章':'长对话')); href='#/listen/'+sid } });
   B.matching.forEach(function(x){ if(x.id===sid){ t=x.title; kindName='长篇匹配'; href='#/match/'+sid } });
   B.cloze.forEach(function(x){ if(x.id===sid){ t=x.title; kindName='选词填空'; href='#/cloze/'+sid } });
@@ -1092,6 +1127,363 @@ function renderStats(){
 }
 C.setGoal=function(n){ S.setGoal(n); renderStats(); T.toast('每日目标改为 '+n+' 题') };
 
+/* ================= 今日新词 ================= */
+/* 每天从文章里收下 N 个生词（默认 50），当天就能在这把它们练一遍：
+   看原句 → 要一份"怎么记"的助记 → 自己填一遍空（运用）→ 自评进 SRS */
+function renderWords(){
+  var S=C.STATS;
+  var goal=S.wordGoal(), words=S.dayWords(), m=S.srsAll();
+  var list=[];
+  words.forEach(function(w){ if(m[w]) list.push(m[w]) });
+  var done  = words.length, train=S.trainToday(), practiced=0;
+  words.forEach(function(w){ if(train[w] && train[w].n>0) practiced++ });
+
+  var h='<div class="card"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">';
+  h+='<div style="flex:0 0 auto">'+T.ring(done/goal, 118, done, '/ '+goal)+'</div>';
+  h+='<div style="flex:1;min-width:220px">';
+  h+='<h1 style="margin:0 0 6px">今日新词</h1>';
+  h+='<p class="sub" style="margin:0">今天已经从文章里收下 <b>'+done+'</b> 个生词，其中 <b>'+practiced+'</b> 个练过填空。'
+   + '目标是 '+goal+' 个——读完一篇就把不认识的词按 <kbd>Tab</kbd> 收割一遍。</p>';
+  h+='<div class="chips" style="margin-top:10px">';
+  [20,30,50,80].forEach(function(n){
+    h+='<span class="chip'+(goal===n?' on':'')+'" onclick="CET6.setWordGoal('+n+')">每天 '+n+' 个</span>';
+  });
+  h+='</div></div></div>';
+  h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="primary" onclick="location.href=\'#/bank\'">去文章里继续收</button> ';
+  h+='<button onclick="CET6.TOOLS.practiceAll()">全部练一遍</button> ';
+  h+='<button onclick="CET6.fillAllMem()">给全部词要 AI 助记</button>';
+  h+='<span class="hint" style="align-self:center">'+ (C.aiReady()?'AI 已接好':'AI 没配置，助记按钮会提示去设置') +'</span>';
+  h+='</div></div>';
+
+  if(!list.length){
+    h+='<div class="card"><div class="empty-st"><p>今天还没收词。</p>'
+     + '<p class="hint">读任意一篇文章，遇到不认识的单词<b>选中它按 <kbd>Tab</kbd></b>，'
+     + '原文例句会自动跟着存进来。每篇六级阅读大约能收 10–20 个。</p>'
+     + '<button class="primary" onclick="location.href=\'#/bank\'">挑一篇文章开始</button></div></div>';
+    $('app').innerHTML=h; return;
+  }
+
+  h+='<div class="card"><h3>今天收的 '+list.length+' 个词</h3>';
+  h+='<p class="hint" style="margin:0 0 10px">每个词下面三件事：<b>AI 助记</b>（怎么记住）、<b>练填空</b>（会不会用）、<b>自评</b>（进复习计划）。</p>';
+  h+='<table class="wtbl"><thead><tr><th>词</th><th>释义与出处</th><th class="n">操作</th></tr></thead><tbody>';
+  list.forEach(function(it, i){
+    h+='<tr><td class="w">'+esc(it.w)+'</td><td>';
+    h+='<div>'+esc(it.d||'（还没释义）')+'</div>';
+    if(it.c) h+=T.ctxHTML(it);
+    h+='<div id="mem_'+it.w+'"></div>';
+    h+='<div id="tr_'+it.w+'"></div>';
+    h+='</td><td class="n" style="white-space:nowrap">';
+    h+='<div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">';
+    h+='<button class="sm" onclick="CET6.aiMemory(\''+it.w+'\')">AI 助记</button>';
+    h+='<button class="sm" onclick="CET6.trainWord(\''+it.w+'\')">练填空</button>';
+    h+='<button class="sm" onclick="CET6.gradeWord(\''+it.w+'\',0)">忘了</button>';
+    h+='<button class="sm" onclick="CET6.gradeWord(\''+it.w+'\',1)">模糊</button>';
+    h+='<button class="sm" onclick="CET6.gradeWord(\''+it.w+'\',2)">记得</button>';
+    h+='</div></td></tr>';
+  });
+  h+='</tbody></table>';
+  var st=S.trainToday(); var okN=0, nN=0;
+  Object.keys(st).forEach(function(k){ okN+=st[k].ok; nN+=st[k].n });
+  if(nN) h+='<p class="hint" style="margin-top:10px">今天填空练了 '+nN+' 次，对 '+okN+' 次（'+Math.round(okN/nN*100)+'%）。</p>';
+  h+='</div>';
+  if(done>=goal){
+    h+='<div class="card acc"><b>今日目标达成：'+done+' / '+goal+'</b>'
+     + '<div class="hint" style="margin-top:6px">明天继续。间隔复习已经排好了——明天的「生词速记」里会出现今天标「忘了」和「模糊」的词。</div></div>';
+  }
+  h+='<div class="card"><h3>词收完了，句子还不懂？</h3>'
+   + '<p class="sub" style="margin:0">生词本按「词」收，摘抄本按「段」收。<b>长难句别当场硬啃</b>——'
+   + '读文章时选中它点「存摘抄」，攒够了回来一起处理：AI 拆主干和修饰成分，再把这段的核心词批量收进生词本。</p>'
+   + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+   + '<button onclick="location.href=\'#/notes\'">打开摘抄本'+(C.NOTE.count()?('（'+C.NOTE.count()+' 段）'):'')+'</button>'
+   + '<button onclick="CET6.TOOLS.queryOpen()">查一个词 / 一段话</button>'
+   + '<span class="hint">快捷键 <kbd>/</kbd> 随时叫出来</span></div></div>';
+  $('app').innerHTML=h;
+}
+C.setWordGoal=function(n){ S.setWordGoal(n); renderWords(); T.toast('每日生词目标改为 '+n) };
+
+/* ================= 摘抄本 ================= */
+/* 生词本按「词」收，摘抄本按「段」收。
+   一段存下来之后能做的事：逐句对照 / AI 拆句子 / 把这段的核心词一次收进生词本 */
+function noteDate(ts){
+  var d = new Date(ts||0);
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function renderNotes(){
+  var list = C.NOTE.all(), h='';
+  var coreAll = 0;
+  h+='<div class="card"><h1 style="margin:0 0 6px">摘抄本</h1>';
+  h+='<p class="sub" style="margin:0">读到值得回看的段落或长难句，<b>选中它 → 点「存摘抄」</b>（或按 <kbd>/</kbd> 查完再存），就落在这里。'
+   + '回来可以逐句对照、让 AI 拆句子，或者把这段里的核心词一次收进生词本。</p>';
+  h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='<button class="primary" onclick="location.href=\'#/bank\'">去文章里挑一段</button> ';
+  h+='<button onclick="CET6.TOOLS.queryOpen()">手动查 / 录一段</button> ';
+  if(list.length) h+='<button onclick="CET6.noteClear()">清空</button>';
+  h+='<span class="hint">共 '+list.length+' 段</span></div></div>';
+
+  if(!list.length){
+    h+='<div class="card"><div class="empty-st"><p>还没有摘抄。</p>'
+     + '<p class="hint">做阅读时遇到读不懂的长句，别硬扛：<b>选中它 → 存摘抄</b>，'
+     + '回头让 AI 把主干和修饰成分拆开，再把里面的核心词收进生词本。</p></div></div>';
+    $('app').innerHTML=h; return;
+  }
+
+  list.forEach(function(it){
+    var ws = C.NOTE.core(it.t);
+    coreAll += ws.length;
+    h+='<div class="card note">';
+    h+='<div class="notehd"><span class="hint">'+(it.src?esc(it.src):'手动录入')+' · '+noteDate(it.ts)+'</span>';
+    h+='<span style="flex:1"></span>';
+    h+='<button class="sm" onclick="CET6.noteCore('+it.ts+')">核心词 '+ws.length+'</button> ';
+    h+='<button class="sm" onclick="CET6.noteExplain('+it.ts+')">AI 讲这段</button> ';
+    h+='<button class="sm" onclick="CET6.noteCopy('+it.ts+')">复制</button> ';
+    h+='<button class="sm" onclick="CET6.noteDel('+it.ts+')">删除</button></div>';
+    h+='<div class="notebody">'+C.sentHTML(it.t, it.zh||'')+'</div>';
+    if(it.zh) h+='<div class="notezh">'+esc(it.zh)+'</div>';
+    h+='<div id="nt_'+it.ts+'"></div>';
+    h+='</div>';
+  });
+  if(coreAll) h+='<p class="hint" style="padding:0 4px">这些段落一共覆盖 '+coreAll+' 个核心词，点每段的「核心词」可以挑着收。</p>';
+  $('app').innerHTML=h;
+}
+C.noteDel=function(ts){ C.NOTE.del(ts); renderNotes(); T.toast('已删除') };
+C.noteClear=function(){
+  if(!confirm('清空摘抄本？本地和云端都会清掉。')) return;
+  C.NOTE.clear(); renderNotes();
+  if(C.CLOUD && C.CLOUD.onNote) C.CLOUD.onNote();
+  T.toast('摘抄本已清空');
+};
+C.noteCopy=function(ts){
+  var it=C.NOTE.get(ts); if(!it) return;
+  try{ navigator.clipboard.writeText(it.t); T.toast('已复制') }catch(e){ T.toast('复制失败，手动选中吧') }
+};
+/* 核心词：先列出来，点哪个收哪个（一键全收也行） */
+C.noteCore=function(ts){
+  var it=C.NOTE.get(ts), box=$('nt_'+ts); if(!it||!box) return;
+  if(box.getAttribute('data-open')==='1'){ box.innerHTML=''; box.setAttribute('data-open',''); return }
+  var ws=C.NOTE.core(it.t);
+  box.setAttribute('data-open','1');
+  if(!ws.length){ box.innerHTML='<div class="hint">这段里没有核心词表里的词。</div>'; return }
+  var h='<div class="wcrow">';
+  ws.forEach(function(x){
+    h+='<span class="wc" onclick="CET6.noteTake('+ts+',\''+x.w+'\')" title="收进生词本">'+esc(x.w)+'<i>'+(x.f===1?'高':(x.f===2?'中':'低'))+'</i></span>';
+  });
+  h+='</div><div style="margin-top:8px"><button class="sm primary" onclick="CET6.noteTakeAll('+ts+')">这 '
+   + ws.length + ' 个全收进生词本</button></div>';
+  box.innerHTML=h;
+};
+C.noteTake=function(ts,w){
+  var it=C.NOTE.get(ts); if(!it) return;
+  T.addWord(String(w).toLowerCase(), C.lookup(w)||'', it.t.slice(0,180));
+};
+C.noteTakeAll=function(ts){
+  var it=C.NOTE.get(ts); if(!it) return;
+  var ws=C.NOTE.core(it.t), n=0;
+  ws.forEach(function(x){ if(T.addWord(String(x.w).toLowerCase(), C.lookup(x.w)||'', it.t.slice(0,180))) n++ });
+  T.toast(n?('收进 '+n+' 个新词'):'这些词都已经在生词本里了');
+};
+/* AI 拆句子：主干 / 修饰 / 译文 / 生词 */
+C.noteExplain=function(ts){
+  var it=C.NOTE.get(ts), box=$('nt_'+ts); if(!it||!box) return;
+  if(!C.aiReady()){
+    box.innerHTML='<div class="tipbox">没配 AI 接口，拆不了句子。'
+      + '可以去 <a href="#/settings">设置</a>里填参数，或者先用上面的「核心词」把生词收走。</div>';
+    return;
+  }
+  if(box.getAttribute('data-open')==='1' && box.innerHTML.indexOf('AI 正在')<0){
+    box.innerHTML=''; box.setAttribute('data-open',''); return;
+  }
+  box.setAttribute('data-open','1');
+  box.innerHTML='<div class="hint">AI 正在拆…</div>';
+  C.aiExplain(it.t).then(function(o){
+    var el=$('nt_'+ts); if(!el) return;
+    if(!o){ el.innerHTML='<div class="tipbox">AI 没返回内容。</div>'; return }
+    if(o.zh && !it.zh){ it.zh=o.zh; C.NOTE.all().forEach(function(x){ if(x.ts===ts) x.zh=o.zh }); C.set('cet6_notes_v1', C.NOTE.all()) }
+    var h='';
+    if(o.main) h+='<div class="qrow"><b>主干</b><span>'+esc(o.main)+'</span></div>';
+    if(o.mods && o.mods.length) h+='<div class="qrow"><b>修饰</b><span>'+o.mods.map(esc).join('<br>')+'</span></div>';
+    if(o.zh) h+='<div class="qrow"><b>译文</b><span>'+esc(o.zh)+'</span></div>';
+    if(o.words && o.words.length){
+      h+='<div class="qrow"><b>生词</b><span>';
+      o.words.forEach(function(x){
+        var w=String(x.w||'').toLowerCase().replace(/[^a-z '-]/g,'');
+        h+='<span class="wc" onclick="CET6.TOOLS.addWord(\''+esc(w)+'\',\''+esc(x.zh||'')+'\')">'+esc(x.w)+'</span> ';
+      });
+      h+='<br><span class="hint">点词收进生词本，释义就是它在这句里的意思。</span></span></div>';
+    }
+    h+='<div class="hint" style="margin-top:6px">AI 只当参考，回原文再对一遍。</div>';
+    el.innerHTML=h;
+    if(C.CLOUD && C.CLOUD.onNote) C.CLOUD.onNote();
+  });
+};
+
+/* 用原文例句挖空：没有 AI 也能练，这是关键 */
+function blankOf(it){
+  var en=String(it.c||''), key=String(it.hl||it.w||'');
+  if(!en || !key) return null;
+  var re=new RegExp('\\b'+key.replace(/[-]/g,'\\-')+'\\b','i');
+  var mt=en.match(re);
+  if(!mt) return null;
+  return {sent: en.replace(re,'________'), ans: mt[0], zh: it.cz||''};
+}
+/* 练填空：优先用 AI 造的例句，没有就用原文那句 */
+C.trainWord=function(w){
+  var S=C.STATS, m=S.srsAll(), it=m[w]; if(!it) return;
+  var box=$('tr_'+w); if(!box) return;
+  if(box.getAttribute('data-open')==='1'){ box.innerHTML=''; box.setAttribute('data-open',''); return }
+  var mem=S.mem(w), ai=(mem&&mem.txt&&mem.txt.charAt(0)==='{')?tryJSON(mem.txt):null;
+  var b = (ai && ai.fill) ? {sent:ai.fill, ans:(String(it.w)), zh:ai.fillZh||''} : blankOf(it);
+  if(!b){ box.innerHTML='<div class="tipbox">这个词没有可用的例句，先去生词本给它补一句。</div>'; return }
+  box.setAttribute('data-open','1');
+  box.innerHTML='<div class="train"><div class="th">把它填回去</div>'
+    +'<div class="ten">'+esc(b.sent)+'</div>'
+    +(b.zh?('<div class="tzh">'+esc(b.zh)+'</div>'):'')
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+    +'<input type="text" id="tw_'+w+'" placeholder="填这个词的正确形式" style="width:auto;flex:1;min-width:130px" onkeydown="if(event.key===\'Enter\')CET6.checkWord(\''+w+'\')">'
+    +'<button class="sm primary" onclick="CET6.checkWord(\''+w+'\')">对答案</button></div>'
+    +'<div id="trs_'+w+'" class="hint" style="margin-top:6px"></div></div>';
+  var el=$('tw_'+w); if(el) el.focus();
+};
+function tryJSON(s){ try{ return JSON.parse(s) }catch(e){ return null } }
+C.checkWord=function(w){
+  var S=C.STATS, m=S.srsAll(), it=m[w]; if(!it) return;
+  var el=$('tw_'+w), out=$('trs_'+w); if(!el||!out) return;
+  var mem=S.mem(w), ai=(mem&&mem.txt)?tryJSON(mem.txt):null;
+  var b = (ai && ai.fill) ? {ans:(ai.ans||it.w)} : (blankOf(it)||{ans:it.w});
+  var val=String(el.value||'').trim().toLowerCase();
+  var ans=String(b.ans||it.w).toLowerCase();
+  var ok = val===ans || val===String(it.w).toLowerCase();
+  S.trainHit(w, ok);
+  out.innerHTML = ok
+    ? '<b style="color:#15803D">对了。</b>'+esc(it.w)+' —— 记住它的<b>搭配对象</b>，比只记中文意思管用。'
+    : '<b style="color:#B91C1C">不对。</b>正确写法是 <b>'+esc(b.ans||it.w)+'</b>。注意词形（单复数 / 时态 / 词尾变化）也要写出来。';
+};
+C.aiMemory=function(w){
+  var S=C.STATS, m=S.srsAll(), it=m[w]; if(!it) return;
+  var box=$('mem_'+w); if(!box) return;
+  if(box.getAttribute('data-open')==='1'){ box.innerHTML=''; box.setAttribute('data-open',''); return }
+  var cached=S.mem(w);
+  if(cached){ box.setAttribute('data-open','1'); box.innerHTML=memHTML(w, cached.txt); return }
+  if(!C.aiReady()){ T.toast('先在设置里配好 AI 接口'); box.innerHTML='<div class="tipbox">'
+    +'没配 AI 接口。可以去 <a href="#/settings">设置</a> 里填参数，或者先点「练填空」——' 
+    +'用原文那句挖空自己填，不依赖 AI 也能练运用。</div>'; box.setAttribute('data-open','1'); return }
+  box.setAttribute('data-open','1');
+  box.innerHTML='<div class="tipbox">正在问 AI 怎么记这个词…</div>';
+  C.aiAssist(w, it.c).then(function(o){
+    var el=$('mem_'+w); if(!el) return;
+    if(!o){ el.innerHTML='<div class="tipbox">AI 没返回内容，检查一下接口地址和模型名。</div>'; return }
+    var txt=JSON.stringify(o);
+    S.memSet(w, txt);
+    if(C.CLOUD && C.CLOUD.onMemory) C.CLOUD.onMemory(w, txt);
+    el.innerHTML=memHTML(w, txt);
+  });
+};
+function memHTML(w, txt){ return C.memCard(w, txt) }
+C.fillAllMem=function(){
+  if(!C.aiReady()){ T.toast('先在设置里配好 AI 接口'); return }
+  var ws=S.dayWords();
+  var i=0;
+  (function step(){
+    while(i<ws.length && S.mem(ws[i])) i++;
+    if(i>=ws.length){ T.toast('这些词的助记都有了'); return }
+    var w=ws[i++];
+    C.aiMemory(w);
+    setTimeout(step, 700);
+  })();
+};
+/* 全部练一遍：挨个展开填空框，手动确认 */
+T.practiceAll=function(){
+  var ws=S.dayWords(), i=0;
+  (function step(){
+    while(i<ws.length && $('tr_'+ws[i]) && $('tr_'+ws[i]).getAttribute('data-open')==='1') i++;
+    if(i>=ws.length){ T.toast('今天的词都展开了，逐个填吧'); return }
+    var w=ws[i++];
+    C.trainWord(w);
+    var el=$('tw_'+w); if(el) el.focus();
+  })();
+};
+C.gradeWord=function(w, g){
+  S.srsReview(w, g);
+  T.toast(['标为「忘了」，明天再来一遍','标为「模糊」，间隔不变','标为「记得」，往后排期'][g]);
+  T.refreshBadges();
+};
+
+/* ================= 找答案手册 ================= */
+/* 这是"怎么练"，不是"怎么考"：把常见做题方法摊开写清楚，
+   配上站内对应的练习入口，看完立刻能上手 */
+function renderMethod(){
+  var SV=C.SOLVE||{};
+  var h='<div class="card"><h1>找答案手册</h1>'
+       +'<p class="sub">不读懂也能做对的一半靠方法。这里把常见的做题套路整理成能照着做的步骤，'
+       +'每条配了站内入口——看完直接练，别光记住。</p></div>';
+
+  h+='<div class="card"><h3>三条铁律（所有题型通用）</h3><ul class="list">';
+  h+='<li><span class="tag">1</span><span class="g"><b>先题后文</b><div class="d">别先通读。先读题干，圈出定位词（<b>数字、大写、人名地名、专有名词</b>），再回原文扫。</div></span></li>';
+  h+='<li><span class="tag">2</span><span class="g"><b>同义替换才是答案</b><div class="d">正确项几乎不会照抄原文。选项和原文一模一样时，多半是干扰项；换了说法的那个才是。</div></span></li>';
+  h+='<li><span class="tag">3</span><span class="g"><b>绝对词慎选</b><div class="d">出现「完全 / 彻底 / 绝对 / 所有 / 必然 / 必须 / 只能」先打个问号；「可能 / 通常 / 部分 / 一定程度上」更常被设为答案。</div></span></li>';
+  h+='</ul></div>';
+
+  h+='<div class="card"><h3>按题型怎么打</h3><ul class="list">';
+  [['仔细阅读（142 分的大头）',
+    '① 读题干圈定位词，<b>不读选项</b>（避免被带偏）；② 回原文找这个词所在的句子，答案就在这一句或它的前一句/后一句，不跨段；③ 拿选项跟定位句逐词比对。全程控制在 10 分钟内。'],
+   ['长篇匹配（10 题 / 71 分）',
+    '纯做连连看，<b>不用读懂</b>。题干圈数字、大写、专有名词，回段落里扫关键词复现。<b>一段可以匹配多道题</b>，优先做有特殊标志的，剩下的最后排。'],
+   ['选词填空（每题 3.55 分）',
+    '性价比最低，<b>放最后</b>。先给 15 个选项标词性，再看空格缺什么成分（缺主语宾语→名词，缺谓语→动词，缺修饰→形容词/副词），固定搭配直接选。不会就跳。'],
+   ['听力（讲座是提分最快的一块）',
+    '六级听力的正确项<b>几乎都是同义替换</b>，原文原词反而是干扰。答案常出现在<b>转折词之后</b>（but / however / actually）和对话后半段。听不出来立刻放弃，别拖到下一题。'],
+   ['写译（142 分，模板化正在失灵）',
+    '翻译遇到不会的词<b>不要空着</b>，用近义词或解释绕过去，写满就有分。写作要有自己的例子和话题词库，别套万能模板——评分对模板化表达越来越严。']
+  ].forEach(function(x){
+    h+='<li><span class="g"><b>'+x[0]+'</b><div class="d">'+x[1]+'</div></span></li>';
+  });
+  h+='</ul></div>';
+
+  h+='<div class="card"><h3>五种题型的针对性打法</h3>';
+  var types=[['main','主旨题'],['detail','细节题'],['meaning','词义句意题'],['attitude','态度题'],['infer','推断题']];
+  types.forEach(function(t){
+    var lines=(SV.methodOf?SV.methodOf(t[0]):[])||[];
+    h+='<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    h+='<span class="qbadge k-'+t[0]+'">'+t[1]+'</span></div><ul class="list" style="margin-top:6px">';
+    lines.forEach(function(s,i){
+      h+='<li><span class="tag">'+(i+1)+'</span><span class="g">'+s+'</span></li>';
+    });
+    h+='</ul></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="card"><h3>考场急救：完全读不懂时的顺序</h3>'
+   + '<p class="hint" style="margin:0 0 10px">这是<b>概率</b>不是能力——用它是为了不空题，别把它当方法练。真要提分还是回第 1 步。</p><ul class="list">';
+  [['先砍极端项','一句话说死的（完全 / 绝不 / 所有）通常不是答案。'],
+   ['找一对相反的选项','两个意思相反时，答案多半在它俩里——二选一，命中率从 25% 变 50%。'],
+   ['挑"留有余地"的那个','可能、通常、部分这类被设为正确项的概率更高。'],
+   ['贴主旨的那个','选项里跟全文主题最贴、概括性最强的优先。'],
+   ['看 ABCD 分布','同一套里某个字母选得特别多时，剩下不会的题可以补最少的那个。']
+  ].forEach(function(x,i){
+    h+='<li><span class="tag">'+(i+1)+'</span><span class="g"><b>'+x[0]+'</b><div class="d">'+x[1]+'</div></span></li>';
+  });
+  h+='</ul>';
+  h+='<div class="tipbox" style="margin-top:10px"><b>别高估这套东西。</b>'
+   + '本站题库是自编的，干扰项为了教学目的写得比较明显，上面这些规律<b>在这里实测能蒙对九成</b>，'
+   + '真题上大致只有一半左右。它只是「不空题」的保底手段，不是提分方法——'
+   + '真想要那 142 分，还是回到第 1 步：先题后文，在定位句里找同义替换。</div>';
+  h+='<div style="margin-top:12px"><button class="primary" onclick="location.href=\'#/bank\'">去题库挑一篇练这套流程</button></div></div>';
+
+  h+='<div class="card"><h3>在本站怎么把这套练成肌肉记忆</h3><ul class="list">';
+  h+='<li><span class="g"><b>「找答案」按钮（<kbd>F</kbd>）</b><div class="d">每道题都有：第 1 步讲题型方法，第 2 步给你题干里的定位词，第 3 步标出可以先排除的选项，第 4 步才是"按规律猜"。<b>它不直接报答案</b>。</div></span></li>';
+  h+='<li><span class="g"><b>辅助提示分四档</b><div class="d">顶栏「辅助」可调：模拟考试 / 只给方向 / 加定位 / 连解析。建议第一遍开「强」把方法看明白，隔天调回「模拟考试」重做同一篇。</div></span></li>';
+  h+='<li><span class="g"><b>划词翻译三档</b><div class="d">顶栏「划词翻译」：完全不显示（硬读）/ 只给词义 / 词义+整句。读不动的句子用句尾的<b>「译」</b>只看那一句，别一上来就全文开译文。</div></span></li>';
+  h+='<li><span class="g"><b>划选 → 浮动条</b><div class="d">划一个词能收进生词本（原文例句自动带上）；划一整段点「翻译」做中英对照，点「存摘抄」放进摘抄本。<kbd>Tab</kbd> 收词，<kbd>R</kbd> 整段翻译。</div></span></li>';
+  h+='<li><span class="g"><b>查词面板（<kbd>/</kbd>）</b><div class="d">顶栏「查词」或按 <kbd>/</kbd>。查<b>单词</b>给词典释义 + 词根助记 + 例句，可以直接收进生词本；'
+   + '查<b>句子</b>给翻译，让 AI 拆主干和修饰成分，还能自动挑出里面的核心词——点一下就收走。<b>选中任何东西再按 <kbd>/</kbd>，会直接带进去查。</b></div></span></li>';
+  h+='<li><span class="g"><b>摘抄本（长难句专用）</b><div class="d">生词本收"词"，摘抄本收"段"。读不懂的长句选中 →「存摘抄」，攒下来回头一起处理：'
+   + '逐句对照、AI 拆句子、把这段覆盖的核心词批量收进生词本。比当场硬啃效率高得多。</div></span></li>';
+  h+='<li><span class="g"><b>数据统计里的「提示依赖度」</b><div class="d">区分「靠提示做对」和「真会」。这条分数在往下走，才是真的学会了。</div></span></li>';
+  h+='</ul></div>';
+
+  $('app').innerHTML=h;
+}
+
 /* ================= 设置 ================= */
 function renderSettings(){
   var s=C.settings, a=s.ai||{};
@@ -1099,24 +1491,95 @@ function renderSettings(){
 
   h+='<div class="card"><h3>学习提示</h3>';
   h+='<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
-  h+='<label class="switch"><input type="checkbox" id="sHover"'+(s.hoverTip?' checked':'')+'><i></i><span>划词提示</span></label>';
+  h+='<label class="switch"><input type="checkbox" id="sHover"'+(C.hoverMode()>0?' checked':'')+'><i></i><span>划词翻译（总开关）</span></label>';
   h+='<label class="switch"><input type="checkbox" id="sInstant"'+(s.instant?' checked':'')+'><i></i><span>即时反馈</span></label>';
+  h+='<div class="tseg"><span>显示到什么程度</span><select id="sHoverMode" style="width:auto">';
+  [[0,'完全不显示（纯英文读）'],[1,'只显示这个词的释义'],[2,'词义 + 整句译文']].forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(C.hoverMode()===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div class="tseg"><span>显示延迟</span><select id="sHoverDelay" style="width:auto">';
+  [[0,'立刻'],[300,'停留 0.3 秒'],[600,'停留 0.6 秒'],[1000,'停留 1 秒']].forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(Number(s.hoverDelay||0)===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div class="tseg"><span>每日生词</span><select id="sWordGoal" style="width:auto">';
+  [20,30,50,80].forEach(function(n){
+    h+='<option value="'+n+'"'+(S.wordGoal()===n?' selected':'')+'>'+n+' 个 / 天</option>';
+  });
+  h+='</select></div>';
   h+='<div class="tseg"><span>辅助提示</span><select id="sAssist" style="width:auto">';
   [[0,'关闭 · 模拟考试'],[1,'轻 · 只给题型口诀'],[2,'中 · 加定位提示'],[3,'强 · 连解析一起看']].forEach(function(o){
     h+='<option value="'+o[0]+'"'+(s.assist===o[0]?' selected':'')+'>'+o[1]+'</option>';
   });
   h+='</select></div></div>';
-  h+='<p class="hint">推荐用法：第一次学一篇时开「强」，把方法看明白；隔天调到「模拟考试」重做一遍，检验自己是不是真会了。</p>';
+  h+='<p class="hint">想练<b>不看译文硬读</b>就把显示程度设成「完全不显示」，读不懂的句子再用鼠标划选、点浮动条上的「翻译」单独翻那一句。'
+   + '嫌提示一直弹就选延迟——停留够时间才出现，正常往下读不会跳出来。</p>';
+  h+='<p class="hint">推荐用法：第一次学一篇时辅助提示开「强」，把方法看明白；隔天调到「模拟考试」重做一遍，检验自己是不是真会了。</p>';
   h+='<div style="margin-top:12px"><button class="primary" onclick="CET6.saveLearn()">保存</button> <span class="hint" id="lm"></span></div></div>';
 
+  var c = C.CLOUD, cfg = c ? c.cfg : null;
+  var lb = c ? c.label() : {t:'未加载', c:''};
+  h+='<div class="card"><h3>云端备份（Supabase）</h3>';
+  h+='<p class="sub">把<b>生词本、答题记录、每日新词、AI 助记缓存、摘抄本</b>备份到你自己的数据库里，换设备、清缓存都不怕。'
+   + '<b>本地优先</b>：云挂了照样能学，只是不同步。</p>';
+  h+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
+  h+='<label class="switch"><input type="checkbox" id="clOn"'+(cfg&&cfg.enabled?' checked':'')+'><i></i><span>启用同步</span></label>';
+  h+='<label class="switch"><input type="checkbox" id="clAuto"'+(cfg&&cfg.auto?' checked':'')+'><i></i><span>改动后自动同步</span></label>';
+  h+='<span class="pill '+(lb.c||'n')+'" id="clState">'+esc(lb.t)+'</span>';
+  h+='<span class="hint" id="clLast">'+ (cfg&&cfg.last ? ('上次同步：'+new Date(cfg.last).toLocaleString('zh-CN')) : '还没同步过') +'</span>';
+  h+='</div>';
+  h+='<div class="row"><label class="f">项目 URL</label><input type="text" id="clUrl" value="'+esc(cfg?cfg.url:'')+'" placeholder="https://xxxx.supabase.co"></div>';
+  h+='<div class="row"><label class="f">anon key</label><input type="password" id="clKey" value="'+esc(cfg?cfg.key:'')+'"></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="primary" onclick="CET6.saveCloud()">保存并立即同步</button> ';
+  h+='<button onclick="CET6.testCloud()">测试连接</button> ';
+  h+='<button onclick="CET6.pullCloud()">只从云端拉回来</button>';
+  h+='<span class="hint" id="clMsg"></span></div>';
+  h+='<p class="hint" style="margin-top:10px">需要项目 URL 和 <b>anon key</b>（项目后台 Settings → API Keys）。'
+   + 'anon key 本来就是给前端用的，真正的安全靠数据库的访问规则，不要把 service_role key 填进来。</p></div>';
+
   h+='<div class="card"><h3>AI 接口（可选）</h3>';
-  h+='<p class="sub">不填也能用。填了之后：词典没收录的词自动问 AI；生词本能一键补释义；导入题目时能自动生成翻译和解析。</p>';
+  h+='<p class="sub">不填也能用。填了之后：给今天的新词生成<b>怎么记的助记</b>（词根/联想/搭配/例句）、'
+   + '词典没收的词自动问 AI、划选段落能整段翻译。</p>';
   h+='<label class="chk"><input type="checkbox" id="aiOn"'+(a.enabled?' checked':'')+'>启用 AI</label>';
-  h+='<div class="row"><label class="f">API Base URL（OpenAI 兼容）</label><input type="text" id="aiUrl" value="'+esc(a.baseUrl||'')+'" placeholder="https://api.openai.com/v1"></div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">';
+  h+='<span class="hint" style="align-self:center">一键填入：</span>';
+  [['deepseek','DeepSeek'],['gemini','Gemini'],['openai','OpenAI'],['glm','智谱 GLM']].forEach(function(p){
+    h+='<button class="sm" onclick="CET6.presetAI(\''+p[0]+'\')">'+p[1]+'</button>';
+  });
+  h+='</div>';
+  h+='<div class="tseg" style="margin:8px 0"><span>模型</span>'
+   + '<input type="text" id="aiModel" list="aiModels" value="'+esc(a.model||'')+'" placeholder="选一个或自己填" style="width:auto;min-width:200px">'
+   + '<datalist id="aiModels">'
+   + ['deepseek-v4-flash','deepseek-v4-pro','deepseek-chat','deepseek-reasoner',
+      'gemini-flash-4.1','gemini-2.5-flash','gemini-2.5-pro','gpt-4o-mini','gpt-4o','glm-4-flash','qwen-plus']
+       .map(function(m){ return '<option value="'+m+'">' }).join('')
+   + '</datalist></div>';
+  h+='<div class="row"><label class="f">API Base URL（OpenAI 兼容）</label>'
+   + '<input type="text" id="aiUrl" list="aiUrls" value="'+esc(a.baseUrl||'')+'" placeholder="https://api.deepseek.com">'
+   + '<datalist id="aiUrls">'
+   + ['https://api.deepseek.com','https://api.deepseek.com/v1',
+      'https://generativelanguage.googleapis.com/v1beta/openai/',
+      'https://api.openai.com/v1','https://open.bigmodel.cn/api/paas/v4']
+       .map(function(u){ return '<option value="'+u+'">' }).join('')
+   + '</datalist></div>';
   h+='<div class="row"><label class="f">API Key</label><input type="password" id="aiKey" value="'+esc(a.key||'')+'"></div>';
-  h+='<div class="row"><label class="f">模型</label><input type="text" id="aiModel" value="'+esc(a.model||'gpt-4o-mini')+'"></div>';
-  h+='<button class="primary" onclick="CET6.saveAI()">保存并测试连接</button> <span class="hint" id="aiMsg"></span>';
-  h+='<p class="hint">Key 只存在你本机浏览器里，不会上传。从浏览器直连需要该服务允许跨域（CORS）。</p></div>';
+  h+='<p class="hint" style="margin:6px 0 10px">地址和模型名是配套的：点上面的「一键填入」自动配对，或者自己填（'
+   + 'DeepSeek = <code>https://api.deepseek.com</code> + <code>deepseek-v4-flash</code>）。'
+   + '注意旧模型名 <code>deepseek-chat</code> 已经停用，要写 <code>deepseek-v4-flash</code>。</p>';
+  h+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
+  h+='<label class="chk" style="margin:0"><input type="checkbox" id="aiU1"'+((s.aiUse&&s.aiUse.memory)!==false?' checked':'')+'>生成助记</label>';
+  h+='<label class="chk" style="margin:0"><input type="checkbox" id="aiU2"'+((s.aiUse&&s.aiUse.define)!==false?' checked':'')+'>自动补释义</label>';
+  h+='<label class="chk" style="margin:0"><input type="checkbox" id="aiU3"'+((s.aiUse&&s.aiUse.translate)!==false?' checked':'')+'>整段翻译</label>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="primary" onclick="CET6.saveAI()">保存并测试连接</button> ';
+  h+='<button onclick="CET6.aiToCloud()">把配置存到云端</button> ';
+  h+='<button onclick="CET6.aiFromCloud()">从云端读回来</button>';
+  h+='<span class="hint" id="aiMsg"></span></div>';
+  h+='<p class="hint" style="margin-top:10px">Key 默认只存在<b>这台浏览器</b>里。点「存到云端」会上传到你的数据库——'
+   + '<b>只有在你确认这个站点不会被别人打开时才这么做</b>；一旦上传，任何能打开这个页面的人都能读到它。</p></div>';
 
   h+='<div class="card"><h3>数据</h3>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
@@ -1133,20 +1596,87 @@ function renderSettings(){
 }
 C.saveLearn=function(){
   C.settings.hoverTip=$('sHover').checked;
+  if($('sHoverMode')) C.settings.hoverMode=+$('sHoverMode').value;
+  if($('sHoverDelay')) C.settings.hoverDelay=+$('sHoverDelay').value;
+  if($('sWordGoal')) S.setWordGoal(+$('sWordGoal').value);
+  C.settings.hoverTip=C.settings.hoverMode>0;
   C.settings.instant=$('sInstant').checked;
   C.settings.assist=+$('sAssist').value;
   C.saveSettings(); C.syncTop();
   $('lm').textContent='已保存';
   setTimeout(function(){ if($('lm')) $('lm').textContent='' },1800);
 };
+/* 常见接口的预设：只填地址和模型名，key 还是得自己粘 */
+var AI_PRESET = {
+  deepseek:{url:'https://api.deepseek.com', model:'deepseek-v4-flash', tip:'DeepSeek V4 Flash：快、便宜，助记和翻译够用'},
+  gemini:  {url:'https://generativelanguage.googleapis.com/v1beta/openai/', model:'gemini-flash-4.1', tip:'Gemini Flash 4.1'},
+  openai:  {url:'https://api.openai.com/v1', model:'gpt-4o-mini', tip:'OpenAI'},
+  glm:     {url:'https://open.bigmodel.cn/api/paas/v4', model:'glm-4-flash', tip:'智谱 GLM'}
+};
+C.presetAI = function(k){
+  var p = AI_PRESET[k]; if(!p) return;
+  var u = $('aiUrl'), m = $('aiModel');
+  if(u) u.value = p.url;
+  if(m) m.value = p.model;
+  T.toast(p.tip + '——地址已填好，把 Key 粘进去再保存');
+};
 C.saveAI=function(){
   C.settings.ai={ enabled:$('aiOn').checked, baseUrl:$('aiUrl').value.trim(),
-    key:$('aiKey').value.trim(), model:$('aiModel').value.trim()||'gpt-4o-mini' };
+    key:$('aiKey').value.trim(), model:$('aiModel').value.trim()||'deepseek-v4-flash' };
+  C.settings.aiUse={ memory:$('aiU1').checked, define:$('aiU2').checked, translate:$('aiU3').checked };
   C.saveSettings();
   var m=$('aiMsg'); m.textContent='已保存，测试中…';
   if(!C.aiReady()){ m.textContent='未启用或信息不全，已保存。'; return }
   C.aiDefine('serendipity','').then(function(d){
-    m.textContent = d? ('连接成功，返回：'+d) : '连接失败，请检查地址/Key/跨域设置。';
+    m.textContent = d? ('连接成功，返回：'+d) : '连接失败，请检查地址/Key/模型名/跨域设置。';
+  });
+};
+/* AI 配置存/取云端（默认不做，只有用户明确点才做） */
+C.aiToCloud=function(){
+  if(!C.CLOUD || !C.CLOUD.ready()){ T.toast('先开启并保存云端同步'); return }
+  if(!confirm('把 API Key 上传到你的数据库？\n\n任何能打开这个页面的人都能读到它。只在你的站点是私有的情况下这么做。')) return;
+  var a=C.settings.ai||{};
+  C.CLOUD.setAI(a).then(function(ok){
+    T.toast(ok ? '已存到云端' : '上传失败，看看云端是不是没连通');
+  });
+};
+C.aiFromCloud=function(){
+  if(!C.CLOUD || !C.CLOUD.ready()){ T.toast('先开启并保存云端同步'); return }
+  C.CLOUD.getAI().then(function(o){
+    if(!o){ T.toast('云端没有存过 AI 配置'); return }
+    C.settings.ai = Object.assign({enabled:false, baseUrl:'', key:'', model:''}, o);
+    C.saveSettings(); renderSettings();
+    T.toast('已从云端读回 AI 配置');
+  });
+};
+/* 云端同步的三个按钮 */
+C.saveCloud=function(){
+  if(!C.CLOUD) return;
+  C.CLOUD.setCfg({ enabled:$('clOn').checked, auto:$('clAuto').checked,
+                   url:$('clUrl').value.trim(), key:$('clKey').value.trim() });
+  var m=$('clMsg');
+  if(!C.CLOUD.ready()){ if(m) m.textContent='没启用或信息不全'; return }
+  m.textContent='正在同步…';
+  C.CLOUD.sync().then(function(ok){
+    renderSettings();
+    if(!ok && m) m.textContent='没连上：' + (C.CLOUD.msg||'');
+  });
+};
+C.testCloud=function(){
+  if(!C.CLOUD) return;
+  C.CLOUD.setCfg({ url:$('clUrl').value.trim(), key:$('clKey').value.trim() });
+  var m=$('clMsg'); if(m) m.textContent='测试中…';
+  C.CLOUD.test().then(function(ok){
+    if(m) m.textContent = ok ? '连接正常' : ('连接失败：' + (C.CLOUD.msg||''));
+    var p=$('clState'); if(p && C.CLOUD.label()) p.textContent=C.CLOUD.label().t;
+  });
+};
+C.pullCloud=function(){
+  if(!C.CLOUD || !C.CLOUD.ready()){ T.toast('先开启同步'); return }
+  var m=$('clMsg'); if(m) m.textContent='拉取中…';
+  C.CLOUD.sync().then(function(ok){
+    if(m) m.textContent = ok ? '已从云端合并到本地' : ('失败：'+(C.CLOUD.msg||''));
+    T.refreshBadges();
   });
 };
 var DATAKEYS=['cet6_settings_v1','cet6_profile_v1','cet6_dictcache_v1','cet6_imported',
@@ -1179,6 +1709,10 @@ C.wipe=function(){
   localStorage.removeItem('cet6_reason_v1');
   location.href='#/home'; location.reload();
 };
+
+/* 暴露给词汇训练模块复用（它自己不重复实现练习引擎） */
+C._practice = practice;
+C._renderRead = renderRead;
 
 /* ================= 启动 ================= */
 window.addEventListener('hashchange',route);
