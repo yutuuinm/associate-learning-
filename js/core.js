@@ -5,6 +5,31 @@ window.CET6 = window.CET6 || {};
 var C = window.CET6;
 var KEY='cet6_settings_v1', PKEY='cet6_profile_v1', DCACHE='cet6_dictcache_v1';
 
+/* ---------- 账号与数据隔离 ----------
+   登录之后，这个账号的所有数据键统一加前缀 u:<账号id>:，于是同一台机器上
+   A 账号看不到 B 账号的东西 —— 全站数据都走 C.get/C.set，所以这一处改完，
+   整站自动隔离，不用每个模块各自处理。
+
+   下面这几个是"站点级"的，不跟着账号走：
+     - 账号表、当前会话：切账号时它俩必须还在
+     - 云端服务配置：Supabase 的地址和 key 是站点级的，不是某个人的学习数据
+       （注意：云端"上传到哪天为止"的进度是账号级的，那个要跟着账号走）
+     - 考试切换、词典缓存：跟账号无关，共享更合理 */
+var GKEYS = {cet6_accounts_v1:1, cet6_session_v1:1, cet6_cloud_v1:1,
+             cet6_exam:1, cet6_dictcache_v1:1};
+function sessUid(){
+  try{ var s = JSON.parse(localStorage.getItem('cet6_session_v1')); return (s && s.uid) || '' }
+  catch(e){ return '' }
+}
+/* 缓存起来，别每次读写都去解析一遍会话；登录/退出时由账号模块调 C.setNS() 刷新 */
+var _ns = null;
+C.ns = function(){
+  if(_ns === null){ var id = sessUid(); _ns = id ? ('u:' + id + ':') : '' }
+  return _ns;
+};
+C.setNS = function(v){ _ns = (v === undefined || v === null) ? null : String(v) };
+C.K = function(k){ return GKEYS[k] ? k : (C.ns() + k) };
+
 /* ---------- 设置 ---------- */
 var DEF = {
   hoverTip:true,   // 鼠标移到词上给提示（总开关）
@@ -16,11 +41,15 @@ var DEF = {
   ai:{enabled:false, baseUrl:'https://api.deepseek.com', key:'', model:'deepseek-flash'},
   aiUse:{memory:true, translate:true, define:true}   // AI 的三个用途可分别开关
 };
-C.settings = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY)||'{}'));
-if(!C.settings.ai) C.settings.ai = Object.assign({}, DEF.ai);
-if(!C.settings.aiUse) C.settings.aiUse = Object.assign({}, DEF.aiUse);
-if(C.settings.hoverMode == null) C.settings.hoverMode = C.settings.hoverTip ? 2 : 0;
-C.saveSettings = function(){ localStorage.setItem(KEY, JSON.stringify(C.settings)) };
+/* 抽成函数：切换账号后要按新的前缀重新读一遍（每个账号可以有自己的设置） */
+C.loadSettings = function(){
+  C.settings = Object.assign({}, DEF, JSON.parse(localStorage.getItem(C.K(KEY))||'{}'));
+  if(!C.settings.ai) C.settings.ai = Object.assign({}, DEF.ai);
+  if(!C.settings.aiUse) C.settings.aiUse = Object.assign({}, DEF.aiUse);
+  if(C.settings.hoverMode == null) C.settings.hoverMode = C.settings.hoverTip ? 2 : 0;
+};
+C.loadSettings();
+C.saveSettings = function(){ localStorage.setItem(C.K(KEY), JSON.stringify(C.settings)) };
 /* 划词提示到底显示到什么程度：0 不显示 1 只词义 2 词义+整句 */
 C.hoverMode = function(){
   if(!C.settings.hoverTip) return 0;
@@ -30,8 +59,10 @@ C.hoverMode = function(){
 /* ---------- 工具 ---------- */
 C.$=function(i){return document.getElementById(i)};
 C.esc=function(s){return String(s==null?'':s).replace(/&/g,'&#38;').replace(/</g,'&#60;').replace(/>/g,'&#62;').replace(/"/g,'&#34;')};
-C.get=function(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
-C.set=function(k,v){localStorage.setItem(k,JSON.stringify(v))};
+/* 读写都过 C.K()：登录后就自动落在自己的命名空间里 */
+C.get=function(k,d){try{var v=JSON.parse(localStorage.getItem(C.K(k)));return v==null?d:v}catch(e){return d}};
+C.set=function(k,v){try{localStorage.setItem(C.K(k),JSON.stringify(v))}catch(e){}};
+C.del=function(k){try{localStorage.removeItem(C.K(k))}catch(e){}};
 
 /* ---------- 词典查询（带回退还原） ---------- */
 C.lookup=function(raw){
