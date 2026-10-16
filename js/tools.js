@@ -254,6 +254,24 @@ T.locate = function(n){
   }
 };
 
+/* ================= 朗读全文 ================= */
+/* 把当前页的英文正文攒成一段，交给系统语音念出来。
+   边看边听：听力练耳朵，跟读练语感，比默读多记住一层声音。 */
+T.readAloud = function(){
+  var nodes = (document.querySelectorAll ? document.querySelectorAll('.s[data-t]') : []) || [];
+  var buf = [], i;
+  for(i = 0; i < nodes.length; i++){
+    var t = String(nodes[i].textContent || '').replace(/\s+/g, ' ').trim();
+    if(t) buf.push(t);
+  }
+  var txt = buf.join(' ');
+  if(!txt){ T.toast('这一页没有可朗读的正文'); return }
+  if(!C.speak){ T.toast('这个浏览器不支持朗读——用眼睛多读两遍也一样'); return }
+  C.speak(txt, 1, function(ok){
+    if(!ok) T.toast('当前设备没装英文语音包，朗读不可用');
+  });
+};
+
 /* ================= 逐句翻译开关 ================= */
 T.zh = false;
 T.toggleZh = function(){
