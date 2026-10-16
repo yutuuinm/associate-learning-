@@ -9,29 +9,45 @@ var B = C.BANK || {};
 var V = C.VEXAM = {};
 var $ = C.$, esc = C.esc, get = C.get, set = C.set;
 
-/* 两套词库：key -> {name, words, passages} */
-var LIBS = { cet6:C.VC, kaoyan:C.VK };
+/* 统一词库：六级 + 考研英语合并去重后按频度分 5 阶（见 vocab-en.js） */
+var LIBS = { en:C.VE };
 V.LIBS = LIBS;
-var EXAM = get('cet6_vexam','cet6');
-if(!LIBS[EXAM]) EXAM = 'cet6';
+var EXAM = 'en';                       /* 不再分两套，保留变量只为兼容旧调用 */
 V.exam = function(){ return EXAM };
-V.lib = function(){ return LIBS[EXAM] || LIBS.cet6 };
-V.setExam = function(k){
-  if(!LIBS[k]) return;
-  EXAM = k; set('cet6_vexam', k);
+V.lib  = function(){ return C.VE };
+V.setExam = function(){ V.route(['home']) };
+
+/* ---------- 阶（band）选择：1 最高频 → 5 一般 ---------- */
+var BAND = get('cet6_vband','1');
+if(BAND !== 'all' && !(BAND >= 1 && BAND <= 5)) BAND = '1';
+V.band      = function(){ return BAND };
+V.bandLabel = function(b){ return b === 'all' ? '全部' : ('第 ' + b + ' 阶') };
+V.setBand = function(b){
+  b = String(b);
+  if(b !== 'all' && !(b >= 1 && b <= 5)) b = '1';
+  BAND = (b === 'all') ? 'all' : Number(b);
+  set('cet6_vband', BAND);
   V.route(['home']);
+};
+/* 当前阶涉及哪些词条（all = 全部） */
+V.bandWords = function(){
+  var V2 = C.VE;
+  if(BAND === 'all') return V2.words;
+  return V2.band(BAND);
 };
 
 /* 把文章挂进题库，错题本才能定位到标题；
-   标记 vexam 后，CET-6 题库页会过滤掉，不混在一起 */
+   标记 vexam 后，英语题库页会过滤掉，不混在一起
+   同时按文中真实出现的核心词反推 target，保证「本篇核心词」与高亮永远对得上 */
 (function(){
-  ['cet6','kaoyan'].forEach(function(k){
-    var lib = LIBS[k]; if(!lib) return;
-    (lib.passages||[]).forEach(function(p){
-      p.vexam = k;
-      p.kind = 'reading';
-      if(B.readings && B.readings.indexOf(p) < 0) B.readings.push(p);
-    });
+  var lib = C.VE; if(!lib) return;
+  (lib.passages||[]).forEach(function(p){
+    p.vexam = 'en';
+    p.kind  = 'reading';
+    if(B.readings && B.readings.indexOf(p) < 0) B.readings.push(p);
+    var joined = (p.text||[]).map(function(s){ return s[0] }).join(' ');
+    var hit = lib.hit ? lib.hit(joined) : [];
+    if(hit.length) p.target = hit.map(function(x){ return x.w });
   });
 })();
 
@@ -51,9 +67,16 @@ function stem(w){ return String(w||'').toLowerCase().replace(/[^a-z]/g,'').slice
 V.shuffle = shuffle;
 
 /* ---------- 词库统计 ---------- */
-V.countByF = function(k){
-  var lib = LIBS[k] || LIBS.cet6, out = {1:0,2:0,3:0};
-  (lib.words||[]).forEach(function(w){ out[w.f] = (out[w.f]||0)+1 });
+V.countByBand = function(){
+  var V2 = C.VE, out = {1:0,2:0,3:0,4:0,5:0};
+  (V2.words||[]).forEach(function(w){ out[w.band] = (out[w.band]||0)+1 });
+  return out;
+};
+V.countByF = V.countByBand;           /* 兼容旧名 */
+/* 每阶里有多少篇短文 */
+V.bandPassages = function(b){
+  var out = 0;
+  (C.VE.passages||[]).forEach(function(p){ if(b === 'all' || p.band === b) out++ });
   return out;
 };
 
@@ -66,6 +89,7 @@ V.route = function(parts){
   if(v === 'home') renderHome();
   else if(v === 'list') renderList(arg);
   else if(v === 'quiz') renderQuiz(arg);
+  else if(v === 'passages') renderPassages();
   else if(v === 'read') renderRead(arg);
   else renderHome();
   window.scrollTo(0,0);
@@ -73,7 +97,7 @@ V.route = function(parts){
   crumb(v);
 };
 function crumb(v){
-  var t = {home:'词汇训练', list:'核心词表', quiz:'生成卷子', read:'高频词文章'}[v] || '词汇训练';
+  var t = {home:'词汇训练', list:'核心词表', quiz:'生成卷子', read:'词汇短文', passages:'词汇递进短文'}[v] || '词汇训练';
   var c = $('crumb'); if(c) c.innerHTML = '<b>'+esc(t)+'</b>';
 }
 function markNav(v){
@@ -92,39 +116,43 @@ function markNav(v){
 /* ================= 总览 ================= */
 function renderHome(){
   var lib = V.lib();
-  var cnt = V.countByF(EXAM);
+  var cnt = V.countByBand();
   var h = '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   h += '<h1 style="margin:0;flex:1">词汇训练</h1>';
-  h += '<div class="seg">';
-  [['cet6','六级'],['kaoyan','考研']].forEach(function(x){
-    h += '<button class="'+(EXAM===x[0]?'on':'')+'" onclick="CET6.VEXAM.setExam(\''+x[0]+'\')">'+x[1]+'</button>';
+  h += '<div class="seg" id="bandSeg">';
+  [[1,'第 1 阶'],[2,'第 2 阶'],[3,'第 3 阶'],[4,'第 4 阶'],[5,'第 5 阶'],['all','全部']].forEach(function(x){
+    h += '<button class="'+(BAND===x[0]?'on':'')+'" onclick="CET6.VEXAM.setBand(\''+x[0]+'\')">'+x[1]+'</button>';
   });
   h += '</div></div>';
-  h += '<p class="sub" style="margin:8px 0 0">两套<b>核心词库</b>分开背，卷子是从词库里<b>现生成</b>的——每次抽的词不一样，越靠前的频度档越先被抽到。</p>';
+  h += '<p class="sub" style="margin:8px 0 0">词库是<b>六级 + 考研英语合并去重</b>后按频度分成 5 阶的——两套都收的词排在前面，因为那才是最该先拿下的部分。卷子从词库里<b>现生成</b>：只抽当前阶，抽完才往下补。</p>';
   h += '<div class="grid" style="margin-top:14px">';
-  h += '<div class="mc"><div class="l">核心词</div><div class="v">'+(lib.words||[]).length+'</div><div class="u">个</div></div>';
-  h += '<div class="mc"><div class="l">高频（1 档）</div><div class="v">'+cnt[1]+'</div><div class="u">优先抽</div></div>';
-  h += '<div class="mc"><div class="l">中频（2 档）</div><div class="v">'+cnt[2]+'</div><div class="u">次之</div></div>';
-  h += '<div class="mc"><div class="l">低频（3 档）</div><div class="v">'+cnt[3]+'</div><div class="u">查漏</div></div>';
+  h += '<div class="mc"><div class="l">核心词（并集）</div><div class="v">'+(lib.words||[]).length+'</div><div class="u">个</div></div>';
+  for(var b=1; b<=5; b++){
+    h += '<div class="mc"><div class="l">第 '+b+' 阶 · '+esc(lib.bandName[b])+'</div>'
+       + '<div class="v">'+cnt[b]+'</div><div class="u">'+V.bandPassages(b)+' 篇</div></div>';
+  }
   h += '</div>';
   h += '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">';
   h += '<button class="primary big" onclick="location.href=\'#/v/quiz\'">生成一套卷子</button> ';
-  h += '<button class="big" onclick="location.href=\'#/v/list\'">看核心词表</button>';
+  h += '<button class="big" onclick="location.href=\'#/v/list\'">看核心词表</button> ';
+  h += '<button class="big" onclick="location.href=\'#/v/passages\'">词汇递进短文</button>';
   h += '</div></div>';
 
-  /* 频度说明 */
-  h += '<div class="card"><h3>频度档怎么用</h3><ul class="list">';
-  h += '<li><span class="tag">1 档</span><span class="g">高频。阅读和完形里反复出现，<b>先背完这一档</b>再往下走。组卷默认只抽这一档。</span></li>';
-  h += '<li><span class="tag">2 档</span><span class="g">中频。认识即可，不要求主动拼写。</span></li>';
-  h += '<li><span class="tag">3 档</span><span class="g">低频。用来查漏，考前扫一遍。</span></li>';
+  /* 分阶说明 */
+  h += '<div class="card"><h3>五个阶是怎么分的</h3><ul class="list">';
+  [1,2,3,4,5].forEach(function(b){
+    h += '<li><span class="tag">'+b+'</span><span class="g"><b>'+esc(lib.bandName[b])+'</b> · '+cnt[b]+' 词 · '+V.bandPassages(b)+' 篇<br>'+esc(lib.bandDesc[b])+'</span></li>';
+  });
   h += '</ul></div>';
 
-  /* 文章 */
-  h += '<div class="card"><h3>高频词文章（'+esc(V.lib().name)+'）</h3>';
-  h += '<p class="hint" style="margin:0 0 10px">文章本身就是用高频词写的，读一遍等于在语境里过一遍词。读的时候划选生词按 <kbd>S</kbd>，例句会自动存进生词本。</p>';
+  /* 文章：按阶列出 */
+  var cur = BAND;
+  var list = (lib.passages||[]).filter(function(p){ return cur === 'all' || String(p.band) === String(cur) });
+  h += '<div class="card"><h3>词汇递进短文 · '+(cur==='all'?'全部':('第 '+cur+' 阶 '+esc(lib.bandName[cur])))+'（'+list.length+' 篇）</h3>';
+  h += '<p class="hint" style="margin:0 0 10px">每篇都只用<b>本阶及以前的词</b>写成，从最高频往下走。读的时候划选生词按 <kbd>S</kbd>，例句会自动存进生词本。</p>';
   h += '<ul class="list">';
-  (lib.passages||[]).forEach(function(p){
-    h += '<li><span class="g">'+esc(p.title)+'<div class="d">'+p.words+' 词 · '+(p.qs||[]).length+' 题</div></span>';
+  list.forEach(function(p){
+    h += '<li><span class="g">'+esc(p.title)+'<div class="d">'+p.words+' 词 · '+(p.qs||[]).length+' 题 · '+(p.target||[]).length+' 个核心词</div></span>';
     h += '<button class="sm primary" onclick="location.href=\'#/v/read/'+p.id+'\'">读</button> ';
     h += '<button class="sm" onclick="CET6.VEXAM.genFrom(\''+p.id+'\')">用这篇出卷</button></li>';
   });
@@ -147,13 +175,13 @@ function renderList(f){
   });
   var h = '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   h += '<h1 style="margin:0;flex:1">核心词表 · '+esc(lib.name)+'</h1>';
-  h += '<div class="seg">';
-  [['cet6','六级'],['kaoyan','考研']].forEach(function(x){
-    h += '<button class="'+(EXAM===x[0]?'on':'')+'" onclick="CET6.VEXAM.setExam(\''+x[0]+'\')">'+x[1]+'</button>';
+  h += '<div class="seg" id="bandSeg">';
+  [[1,'第 1 阶'],[2,'第 2 阶'],[3,'第 3 阶'],[4,'第 4 阶'],[5,'第 5 阶'],['all','全部']].forEach(function(x){
+    h += '<button class="'+(BAND===x[0]?'on':'')+'" onclick="CET6.VEXAM.setBand(\''+x[0]+'\')">'+x[1]+'</button>';
   });
   h += '</div></div>';
   h += '<div class="chips" style="margin-top:12px">';
-  [['1','高频'],['2','中频'],['3','低频'],['all','全部']].forEach(function(x){
+  [[1,'最高频'],[2,'高频'],[3,'中高频'],[4,'中频'],[5,'一般'],['all','全部']].forEach(function(x){
     h += '<span class="chip'+(LIST_F===x[0]?' on':'')+'" onclick="location.href=\'#/v/list/'+x[0]+'\'">'+x[1]+'</span>';
   });
   h += '</div>';
@@ -161,12 +189,65 @@ function renderList(f){
   h += '<input type="text" id="vq" placeholder="搜词或释义" value="'+esc(LIST_Q)+'" style="flex:1;min-width:140px;width:auto" oninput="CET6.VEXAM.search(this.value)">';
   h += '<span class="hint" style="align-self:center">'+words.length+' 个词</span></div></div>';
 
-  h += '<div class="card"><table class="wtbl"><thead><tr><th>词</th><th>释义</th><th class="n">档</th><th class="n">操作</th></tr></thead><tbody>';
+  h += '<div class="card"><table class="wtbl"><thead><tr><th>词</th><th>释义</th><th class="n">阶</th><th class="n">来源</th><th class="n">操作</th></tr></thead><tbody>';
   words.forEach(function(w){
-    h += '<tr><td class="w">'+esc(w.w)+'</td><td>'+esc(w.d)+'</td><td class="n">'+w.f+'</td>';
+    h += '<tr><td class="w">'+esc(w.w)+'</td><td>'+esc(w.d)+'</td><td class="n">'+w.band+'</td>';
+    h += '<td class="n">'+(w.both?'六级+考研':(w.only==='cet6'?'六级':'考研'))+'</td>';
     h += '<td class="n"><button class="sm" onclick="CET6.VEXAM.addWord(\''+esc(w.w)+'\',\''+esc(w.d)+'\')">收进生词本</button></td></tr>';
   });
   h += '</tbody></table></div>';
+  $('app').innerHTML = h;
+}
+
+/* ================= 词汇递进短文（50 篇 · 按阶） ================= */
+/* 每篇只用「本阶及以前」的词写成，从第 1 阶（最高频）一路走到第 5 阶（一般）。
+   读完一篇 → 立刻用这篇里的词出卷 → 收词进单词本 → 进遗忘曲线复习。 */
+function renderPassages(){
+  var lib = V.lib(), V2 = C.VE;
+  var all = (lib.passages||[]).slice().sort(function(a,b){
+    return (a.band - b.band) || (String(a.id) < String(b.id) ? -1 : 1);
+  });
+  var S = C.STATS;
+  var done = {};
+  try{ (S.log.all ? S.log.all() : []).forEach(function(r){ if(r && r.sid) done[r.sid] = 1 }) }catch(e){}
+  var readN = 0;
+  all.forEach(function(p){ if(done['V'+EXAM+'_'+p.id]) readN++ });
+
+  var h = '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h += '<h1 style="margin:0;flex:1">词汇递进短文</h1>';
+  h += '<div class="seg" id="bandSeg">';
+  [['all','全部'],[1,'第 1 阶'],[2,'第 2 阶'],[3,'第 3 阶'],[4,'第 4 阶'],[5,'第 5 阶']].forEach(function(x){
+    h += '<button class="'+(BAND===x[0]?'on':'')+'" onclick="CET6.VEXAM.setBand(\''+x[0]+'\')">'+x[1]+'</button>';
+  });
+  h += '</div></div>';
+  h += '<p class="sub" style="margin:8px 0 0">共 <b>'+all.length+'</b> 篇，已练 <b>'+readN+'</b> 篇。每篇 <b>5 题</b>，题目分成两类：'
+     + '<b>语境题</b>直接用短文原句挖空（考用法），<b>词义题</b>给词选义（考释义）。'
+     + '读的时候划选生词按 <kbd>Tab</kbd>，原句会自动存成例句。</p>';
+  h += '<div class="grid" style="margin-top:14px">';
+  for(var b=1;b<=5;b++){
+    h += '<div class="mc"><div class="l">第 '+b+' 阶 · '+esc(V2.bandName[b])+'</div>'
+       + '<div class="v">'+V.countByBand()[b]+'</div><div class="u">词 · '+V.bandPassages(b)+' 篇</div></div>';
+  }
+  h += '</div></div>';
+
+  var cur = BAND;
+  for(var bb=1; bb<=5; bb++){
+    if(cur !== 'all' && String(cur) !== String(bb)) continue;
+    var arr = all.filter(function(p){ return p.band === bb });
+    if(!arr.length) continue;
+    h += '<div class="card"><h3>第 '+bb+' 阶 · '+esc(V2.bandName[bb])+'</h3>';
+    h += '<p class="hint" style="margin:0 0 10px">'+esc(V2.bandDesc[bb])+'</p>';
+    h += '<ul class="list">';
+    arr.forEach(function(p){
+      var ok = done['V'+EXAM+'_'+p.id];
+      h += '<li><span class="g">'+esc(p.title)
+         + '<div class="d">'+p.words+' 词 · '+(p.qs||[]).length+' 题 · '+(p.target||[]).length+' 个核心词</div></span>'
+         + (ok ? '<span class="tag">已练</span> ' : '')
+         + '<button class="sm primary" onclick="location.href=\'#/v/read/'+p.id+'\'">读</button> '
+         + '<button class="sm" onclick="CET6.VEXAM.genFrom(\''+p.id+'\')">出卷</button></li>';
+    });
+    h += '</ul></div>';
+  }
   $('app').innerHTML = h;
 }
 V.search = function(q){
@@ -184,11 +265,11 @@ V.addWord = function(w, d){
 
 /* ================= 组卷 ================= */
 /* 题型：① 词义题（给词选义）② 语境题（句子挖空选词）
-   频度低的档不会抢在高频前面——抽词严格按档位顺序 */
-function pickWords(lib, n, fs){
+   抽词严格按「阶」——当前阶抽完才往下补，保证高频先遇到。 */
+function pickWords(lib, n, bs){
   var pool = [];
-  fs.forEach(function(f){
-    pool = pool.concat((lib.words||[]).filter(function(w){ return String(w.f) === String(f) }));
+  bs.forEach(function(b){
+    pool = pool.concat((lib.words||[]).filter(function(w){ return String(w.band) === String(b) }));
   });
   if(!pool.length) pool = (lib.words||[]).slice();
   return shuffle(pool).slice(0, n);
@@ -232,7 +313,7 @@ function pairsFromPassages(lib, fs, pid){
         var hit = null;
         baseForms(t).forEach(function(b){ if(!hit && idx[b]) hit = idx[b] });
         if(!hit) return;
-        if(fs.length && fs.indexOf(hit.f) < 0) return;
+        if(fs.length && fs.indexOf(hit.band) < 0) return;
         if(seen[hit.w]) return;
         seen[hit.w] = 1;
         out.push({w:hit, en:s[0], zh:s[1], token:t, pid:p.id});
@@ -243,7 +324,7 @@ function pairsFromPassages(lib, fs, pid){
 }
 V.pairsFromPassages = pairsFromPassages;
 V.pairCount = function(k, fs){
-  return pairsFromPassages(LIBS[k] || LIBS.cet6, fs || [1,2,3]).length;
+  return pairsFromPassages(C.VE, (fs || [1]).map(Number)).length;
 };
 /* 某一篇文章覆盖了哪些核心词（不看档位，全列出来给读者看） */
 V.coverOf = function(pid){
@@ -336,7 +417,7 @@ V.genFrom = function(pid){
 };
 function route2(p){ location.hash = '#/v/' + p.join('/') }
 
-var QZ = {list:[], title:'', fs:[1], n:20};
+var QZ = {list:[], title:'', bs:[1], n:20};
 function renderQuiz(arg){
   var lib = V.lib();
   var h = '';
@@ -348,19 +429,22 @@ function renderQuiz(arg){
     if(!psg){ $('app').innerHTML = '<div class="card"><div class="empty-st"><p>找不到这篇。</p><button class="primary" onclick="location.href=\'#/v/home\'">返回</button></div></div>'; return }
   }
   if(arg === 'new'){ /* 重新抽 */ }
-  var fs = QZ.fs, n = QZ.n;
+  /* 参数：b1 / b12 / b123 / b12345 / all，或 p_<id>（用某篇文章的词出卷）
+     兼容旧写法 f1 / f12 / f123 */
+  var MAP = {f1:[1], f12:[1,2], f123:[1,2,3], b1:[1], b12:[1,2], b123:[1,2,3],
+                     b1234:[1,2,3,4], b12345:[1,2,3,4,5], all:'all'};
+  var bs = QZ.bs, n = QZ.n;
   if(pid){
-    /* 指定文章时不按档位筛——这篇里出现过的词都算，读完就测 */
-    fs = [1,2,3];
-  }else{
-    if(arg === 'f12') fs = [1,2];
-    if(arg === 'f123') fs = [1,2,3];
-    if(arg === 'f1') fs = [1];
-    if(arg) QZ.fs = fs;
+    /* 指定文章时不按阶筛——这篇里出现过的词都算，读完就测这篇的 */
+    bs = [1,2,3,4,5];
+  }else if(arg && MAP[arg]){
+    bs = (MAP[arg] === 'all') ? 'all' : MAP[arg].slice();
+    QZ.bs = bs;
   }
+  if(bs === 'all') bs = [1,2,3,4,5];
 
   /* 语境题由文章驱动：只有在文章里真出现过的词才拿来挖空 */
-  var pairs = shuffle(pairsFromPassages(lib, fs, pid));
+  var pairs = shuffle(pairsFromPassages(lib, bs, pid));
   if(pid){
     /* 指定文章：这篇覆盖几个词就出几题，不外补——读完立刻测这篇的 */
     n = pairs.length || 1;
@@ -374,7 +458,7 @@ function renderQuiz(arg){
     meanSrc = shuffle(pairs.filter(function(p){ return !usedWords[p.w.w] })).map(function(p){ return p.w });
   }else{
     /* 剩下的名额用词义题补，优先补高频 */
-    meanSrc = pickWords(lib, n - nCtx + 8, fs).filter(function(w){ return !usedWords[w.w] });
+    meanSrc = pickWords(lib, n - nCtx + 8, bs).filter(function(w){ return !usedWords[w.w] });
   }
   var meanPicked = meanSrc.slice(0, n - nCtx);
 
@@ -409,19 +493,19 @@ function renderQuiz(arg){
 
   h += '<div class="card"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   h += '<h1 style="margin:0;flex:1">生成卷子 · '+esc(lib.name)+'</h1>';
-  h += '<div class="seg">';
-  [['cet6','六级'],['kaoyan','考研']].forEach(function(x){
-    h += '<button class="'+(EXAM===x[0]?'on':'')+'" onclick="CET6.VEXAM.setExam(\''+x[0]+'\')">'+x[1]+'</button>';
+  h += '<div class="seg" id="bandSeg">';
+  [[1,'第 1 阶'],[2,'第 2 阶'],[3,'第 3 阶'],[4,'第 4 阶'],[5,'第 5 阶'],['all','全部']].forEach(function(x){
+    h += '<button class="'+(BAND===x[0]?'on':'')+'" onclick="CET6.VEXAM.setBand(\''+x[0]+'\')">'+x[1]+'</button>';
   });
   h += '</div></div>';
   h += '<p class="sub" style="margin:8px 0 0">' + (psg
        ? '这一套只考《'+esc(psg.title)+'》里出现过的词：'
-       : '这一套从<b>'+(fs.length===1?('第 '+fs[0]+' 档（高频）'):(fs.join('、')+' 档'))+'</b>里现抽 ')
-     + '<b>'+ctxPicked.length+' 道语境题</b>（取自高频词文章的原句，考用法）+ <b>'+meanPicked.length+' 道词义题</b>（考释义），共 '+qs.length+' 题。'
+       : '这一套从<b>'+(bs.length===1?('第 '+bs[0]+' 阶（'+esc(lib.bandName[bs[0]])+'）'):(bs.map(function(x){return '第 '+x+' 阶'}).join('、')))+'</b>里现抽 ')
+     + '<b>'+ctxPicked.length+' 道语境题</b>（取自词汇递进短文的原句，考用法）+ <b>'+meanPicked.length+' 道词义题</b>（考释义），共 '+qs.length+' 题。'
      + '点「换一套」重新抽。</p>';
   h += '<div class="chips" style="margin-top:12px">';
-  [['f1','只抽高频'],['f12','高频+中频'],['f123','三档全抽']].forEach(function(x){
-    var on = (arg === x[0]) || (!arg && x[0] === 'f1');
+  [['b1','只抽第 1 阶'],['b12','第 1–2 阶'],['b123','第 1–3 阶'],['b12345','五阶全抽'],['all','全部']].forEach(function(x){
+    var on = (arg === x[0]) || (!arg && x[0] === 'b1');
     h += '<span class="chip'+(on?' on':'')+'" onclick="location.href=\'#/v/quiz/'+x[0]+'\'">'+x[1]+'</span>';
   });
   h += '<span class="chip" onclick="CET6.VEXAM.newQuiz()">↻ 换一套</span>';
@@ -431,7 +515,7 @@ function renderQuiz(arg){
   $('app').innerHTML = h;
   /* 交给主练习引擎渲染：划词、提示、定位、判分、统计全部复用 */
   C._practice({
-    kind:'vocab', sid:'V' + EXAM + '_' + (pid ? pid : fs.join('')), pfx:'v', qs:qs,
+    kind:'vocab', sid:'V' + EXAM + '_' + (pid ? pid : bs.join('')), pfx:'v', qs:qs,
     two:false, limit: n*30,
     note:'<span class="hint">词汇卷 · '+esc(lib.name)+(psg?(' · '+esc(psg.title)):'')+'</span>'
   });
@@ -448,10 +532,8 @@ function renderRead(id){
   var p = null;
   (lib.passages||[]).forEach(function(x){ if(x.id === id) p = x });
   if(!p){
-    /* 另一套里找，顺带切过去 */
-    var other = EXAM === 'cet6' ? 'kaoyan' : 'cet6';
-    (LIBS[other].passages||[]).forEach(function(x){ if(x.id === id) p = x });
-    if(p){ EXAM = other; set('cet6_vexam', other) }
+    $('app').innerHTML = '<div class="card"><div class="empty-st"><p>找不到这篇。</p><button class="primary" onclick="location.href=\'#/v/home\'">回词汇训练</button></div></div>';
+    return;
   }
   if(!p){ $('app').innerHTML = '<div class="card"><div class="empty-st"><p>找不到这篇。</p><button class="primary" onclick="location.href=\'#/v/home\'">回词汇训练</button></div></div>'; return }
   C._renderRead(id);
