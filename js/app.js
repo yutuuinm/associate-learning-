@@ -261,7 +261,8 @@ function renderAssess(){
   if(VT.i<VT.list.length){
     var w=VT.list[VT.i], p=Math.round(VT.i/VT.list.length*100);
     h+='<div class="card"><div style="display:flex;align-items:center;gap:10px"><h2 style="flex:1;margin:0">词汇量测评</h2><span class="pill">第 '+(VT.i+1)+' / '+VT.list.length+'</span></div>';
-    h+='<p class="sub">认识就点「认识」。不确定的一律点「不认识」——高估自己只会拿到一份没用的方案。里面混了几个不存在的词。</p>';
+    h+='<p class="sub">认识就点「认识」，不确定的一律点「不认识」——高估自己只会拿到一份没用的方案。'
+     + '一共 '+VT.list.length+' 个词（其中 '+VT_NONCE+' 个是编的），约 1 分钟；做完还有 8 个小问题。</p>';
     h+='<div class="bar"><i style="width:'+p+'%"></i></div>';
     h+='<div class="center"><div class="wt">'+esc(w.w)+'<small>'+(w.band?'（'+w.label+'）':'')+'</small></div>';
     h+='<button class="big" onclick="CET6.vt(1)">认识</button> ';
@@ -271,11 +272,23 @@ function renderAssess(){
   }
   $('app').innerHTML=h;
 }
+/* 每带抽 3 个 = 21 题，另加 3 个假词，一共 24 题。
+   原来每带 10 个共 78 题，做着太累，半程就开始乱点，结果反而不准；
+   词表里每带留了 10 个，每次随机抽，所以重测不会遇到同一批词。 */
+var VT_PICK = 3, VT_NONCE = 3;
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t }
+  return a;
+}
 function buildVT(){
   var list=[];
-  A.bands.forEach(function(b){ b.words.forEach(function(w){ list.push({w:w,band:b.k,label:b.label,size:b.size}) }) });
-  A.nonce.forEach(function(w){ list.push({w:w,band:null,nonce:true}) });
-  for(var i=list.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=list[i]; list[i]=list[j]; list[j]=t }
+  A.bands.forEach(function(b){
+    shuffle(b.words.slice()).slice(0, VT_PICK).forEach(function(w){
+      list.push({w:w, band:b.k, label:b.label, size:b.size});
+    });
+  });
+  shuffle(A.nonce.slice()).slice(0, VT_NONCE).forEach(function(w){ list.push({w:w, band:null, nonce:true}) });
+  shuffle(list);
   VT={list:list,i:0,ans:{},started:true};
 }
 C.vt=function(v){
@@ -292,16 +305,23 @@ document.addEventListener('keydown',function(e){
   if(e.key==='s'||e.key==='S'){ C.vtAdd(); e.preventDefault() }
 });
 function finishVT(){
+  /* 只按本次抽到的词算正确率（抽样规模变了，不能再拿整份词表当分母） */
+  var picked = {}, pickedNonce = [];
+  VT.list.forEach(function(x){
+    if(x.nonce) pickedNonce.push(x.w);
+    else { (picked[x.band] = picked[x.band] || []).push(x.w) }
+  });
   var fake=0;
-  A.nonce.forEach(function(w){ if(VT.ans[w]) fake++ });
+  pickedNonce.forEach(function(w){ if(VT.ans[w]) fake++ });
   var vocab=0, rows=[];
   A.bands.forEach(function(b){
-    var ok=0; b.words.forEach(function(w){ if(VT.ans[w]) ok++ });
-    var rate=ok/b.words.length;
+    var ws = picked[b.k] || [];
+    var ok=0; ws.forEach(function(w){ if(VT.ans[w]) ok++ });
+    var rate = ws.length ? ok/ws.length : 0;
     vocab+=Math.round(b.size*rate);
-    rows.push({k:b.k,label:b.label,ok:ok,tot:b.words.length,rate:Math.round(rate*100),add:Math.round(b.size*rate)});
+    rows.push({k:b.k,label:b.label,ok:ok,tot:ws.length,rate:Math.round(rate*100),add:Math.round(b.size*rate)});
   });
-  VT.result={vocab:vocab,fake:fake,rows:rows};
+  VT.result={vocab:vocab,fake:fake,rows:rows,nonce:VT_NONCE};
   renderQuiz();
 }
 
@@ -312,7 +332,7 @@ function renderQuiz(){
   h+='<div class="grid" style="margin:12px 0">';
   h+='<div class="mc"><div class="l">估算词汇量</div><div class="v" style="color:var(--brand)">'+VT.result.vocab+'</div></div>';
   h+='<div class="mc"><div class="l">水平</div><div class="v" style="font-size:18px">'+levelName(VT.result.vocab)+'</div></div></div>';
-  if(VT.result.fake>3){
+  if(VT.result.fake >= Math.max(2, Math.ceil((VT.result.nonce||3)/2))){
     h+='<div class="card tight" style="background:var(--erbg);border-color:var(--erln)"><b>注意：</b>你把 '+VT.result.fake+' 个不存在的词也标成了「认识」，结果可能偏高。建议重测一次，不确定的一律选「不认识」。</div>';
   }
   h+='<table><thead><tr><th>词频带</th><th class="n">答对</th><th class="n">折算</th></tr></thead><tbody>';
@@ -486,25 +506,44 @@ function qBlock(q,pfx){
   h+='</div><div id="ex_'+pfx+q.n+'"></div></div>';
   return h;
 }
+/* 做题页顶部这条工具栏。
+   原先 13 个按钮全挤在右边，一行放不下就散成好几行、看着像错位。
+   现在分两级：做题主流程（上题/下题/找答案/解析/定位）常驻，其余收进「更多」——
+   按钮一个没少，只是不占地方。
+   onmousedown 阻止默认：点按钮时浏览器会清掉文本选区，而"收词/译选中/存摘抄"
+   正要读这个选区（连带译文对照也一起丢）。 */
 function pbarHTML(cfg){
   var h='<div class="pbar"><span class="tm" id="tm">0:00</span>';
   h+='<span class="hint" id="pg">已答 0 / '+cfg.qs.length+'</span>';
-  h+='<span class="sp" style="flex:1"></span>';
+  h+='<span class="pbtns" onmousedown="event.preventDefault()">';
   h+='<button class="sm" title="上一题（K）" onclick="CET6.TOOLS.prev()">‹ 上题</button>';
   h+='<button class="sm" title="下一题（J）" onclick="CET6.TOOLS.next()">下题 ›</button>';
   h+='<button class="sm primary" title="四步带你找到依据（F）" onclick="CET6.TOOLS.solve()">找答案</button>';
-  h+='<button class="sm" title="实在不会，按规律猜一个（G）" onclick="CET6.TOOLS.blindGuess(CET6.TOOLS.cur0())">猜一个</button>';
   h+='<button class="sm" title="展开/收起本题解析（E）" onclick="CET6.TOOLS.reveal()">解析</button>';
-  h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locate(CET6.TOOLS.cur0())">定位原文</button>';
+  h+='<button class="sm" title="定位到原文依据（L）" onclick="CET6.TOOLS.locate(CET6.TOOLS.cur0())">定位</button>';
+  h+='<details class="pmore"><summary title="更多工具（都在快捷键里）">更多 ⋯</summary>';
+  h+='<div class="pmenu" onclick="CET6.menuClose(this)">';
+  h+='<button class="sm" title="实在不会，按规律猜一个（G）" onclick="CET6.TOOLS.blindGuess(CET6.TOOLS.cur0())">猜一个</button>';
   h+='<button class="sm" title="整篇逐句翻译（T）" onclick="CET6.TOOLS.toggleZh()">逐句翻译</button>';
   h+='<button class="sm" title="把选中的词收进生词本（S）" onclick="CET6.TOOLS.addSel()">收词</button>';
   h+='<button class="sm" title="翻译划选的整段（R）" onclick="CET6.TOOLS.translateSel()">译选中</button>';
   h+='<button class="sm" title="把选中的一段存进摘抄本" onclick="CET6.TOOLS.saveSel()">存摘抄</button>';
-  h+='<button class="sm" title="查词 / 拆句子（/）" onclick="CET6.TOOLS.querySel()">查词 <kbd>/</kbd></button>';
-  h+='<button class="sm" onclick="CET6.TOOLS.kbd()">快捷键 <kbd>?</kbd></button>';
-  h+='<button class="sm" onclick="CET6.clearAns()">清空</button></div>';
+  h+='<button class="sm" title="查词 / 拆句子（/）" onclick="CET6.TOOLS.querySel()">查词</button>';
+  h+='<button class="sm" title="快捷键一览（?）" onclick="CET6.TOOLS.kbd()">快捷键</button>';
+  h+='<button class="sm" title="清空本题作答" onclick="CET6.clearAns()">清空作答</button>';
+  h+='</div></details>';
+  h+='</span></div>';
   return h;
 }
+/* 点菜单里的东西就把菜单收起来；点页面别处也收（原生 details 不管这些） */
+C.menuClose=function(el){
+  var d = el && el.closest ? el.closest('details') : null;
+  if(d) d.removeAttribute('open');
+};
+document.addEventListener('click',function(e){
+  var ds=document.querySelectorAll('details.pmore[open]'), i;
+  for(i=0;i<ds.length;i++){ if(!ds[i].contains(e.target)) ds[i].removeAttribute('open') }
+});
 var ASSIST_NM=['模拟考试','轻 · 方向','中 · 定位','强 · 全开'];
 function adviseHTML(ad){
   return '<div class="card acc"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
@@ -1886,7 +1925,8 @@ function renderAccount(){
         h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
          + '<span style="min-width:120px">'+esc(all[i].name)+'</span>'
          + '<span class="hint">建于 '+fmtT(all[i].created||0)+' · '+(A.dataCount?A.dataCount(all[i].id):0)+' 项数据</span>'
-         + '<button class="sm" onclick="document.getElementById(\'lgName\').value=\''+esc(all[i].name)+'\';document.getElementById(\'lgPwd\').focus()">填进来</button>'
+         /* 账号名可能是任意字符，塞进 onclick 里会把引号弄乱，所以只传下标 */
+         + '<button class="sm" onclick="CET6.accFill('+i+')">填进来</button>'
          + '</div>';
       }
       h+='</div>';
@@ -1912,6 +1952,13 @@ function askAdopt(uid){
   return C.ACC.adopt(uid);
 }
 
+/* 把某个已建账号的名字填进登录框（不直接把名字拼进 onclick，免得名字里有引号就崩） */
+C.accFill=function(i){
+  var u=(C.ACC.users()||[])[i]; if(!u) return;
+  var n=$('lgName'), p=$('lgPwd'), r=$('rgName');
+  if(n) n.value=u.name; else if(r) r.value=u.name;
+  if(p) p.focus();
+};
 C.accLogin=function(){
   var n=val('lgName'), p=val('lgPwd');
   if(!n||!p){ T.toast('账号名和密码都要填'); return }
