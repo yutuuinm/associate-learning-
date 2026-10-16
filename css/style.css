@@ -67,7 +67,8 @@ p{margin:0 0 10px}
 .side a:hover{background:var(--side-h);color:var(--side-t2)}
 .side a.on{background:rgba(37,99,235,.22);color:#fff;font-weight:500}
 .side a.on svg{opacity:1;color:#93B4FF}
-.side a .cnt{margin-left:auto;font-size:11px;background:rgba(255,255,255,.10);padding:1px 6px;border-radius:20px;color:#CBD5E1}
+.side a .cnt{margin-left:auto;font-size:11px;background:rgba(255,255,255,.10);padding:1px 6px;border-radius:20px;color:#CBD5E1;
+  max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* 账号名再长也不撑破侧栏 */
 .side a.on .cnt{background:rgba(147,180,255,.22);color:#DBE7FF}
 .side a .cnt.ok{background:#15803D;color:#fff}
 
@@ -119,8 +120,13 @@ p{margin:0 0 10px}
 .kbtn{
   width:26px;height:26px;border-radius:var(--r3);border:1px solid var(--line);background:#fff;
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut);font-size:12px;font-family:var(--mono);
+  flex:0 0 auto;      /* 顶栏挤的时候不许被压扁 */
 }
 .kbtn:hover{border-color:var(--brand);color:var(--brand)}
+/* 顶栏右侧这两组：一组是状态灯，一组是入口按钮。
+   包成 tstatus 是为了它们各自整体换行，不会出现"账号灯在第一行、AI 灯掉到第二行"那种错位 */
+.tstatus{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.kbtn.wide{width:auto;padding:0 8px}
 /* 顶栏 AI 状态灯：绿=接好了，红=没接上（悬停看原因） */
 .kbtn.ai-ok{width:auto;padding:0 7px;color:#15803D;border-color:#86EFAC;background:#F0FDF4}
 .kbtn.ai-ok:hover{border-color:#15803D;color:#15803D}
@@ -323,6 +329,23 @@ button svg,.btn svg{width:14px;height:14px}
   background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);
   position:sticky;top:56px;z-index:20;margin-bottom:14px;
 }
+/* 右侧按钮组：margin-left:auto 代替占位符，窄屏时整组换行右对齐，不会零散拆开 */
+.pbtns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;justify-content:flex-end}
+.pmore{position:relative;flex:0 0 auto}
+.pmore>summary{
+  list-style:none;cursor:pointer;user-select:none;
+  display:inline-flex;align-items:center;height:26px;padding:0 9px;
+  border-radius:var(--r3);border:1px solid var(--line);background:#fff;
+  color:var(--mut);font-size:12.5px;white-space:nowrap;
+}
+.pmore>summary::-webkit-details-marker{display:none}
+.pmore[open]>summary{border-color:var(--brand);color:var(--brand)}
+.pmenu{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:124px;
+  background:#fff;border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--sh2);
+  padding:6px;display:flex;flex-direction:column;gap:4px;
+}
+.pmenu .sm{width:100%;justify-content:flex-start;text-align:left}
 .pbar .tm{font-family:var(--mono);font-size:13px;color:var(--ink2);font-variant-numeric:tabular-nums}
 .pbar .tm.over{color:var(--er);font-weight:600}
 
@@ -678,10 +701,21 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
 .wc i{font-style:normal;font-size:9.5px;font-weight:400;opacity:.6}
 
 /* 响应式 */
+/* 顶栏东西多（划词/辅助/即时反馈 + 账号灯 + AI 灯 + 查词 + ?），
+   窗口一窄就换行、看着像错位。这里先砍英文标签，再收间距，保证功能都还在 */
+@media(max-width:1240px){
+  .top{gap:10px}
+  .toptools{gap:10px}
+  #topCet6 .tseg>span,#topCet6 .switch>span{display:none}
+  #topCet6 select{max-width:112px}
+}
 @media(max-width:900px){
   .side{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.2s;box-shadow:var(--sh2)}
   .side.open{transform:none}
   .burger{display:inline-flex}
   .content{padding:16px 14px 130px}
-  .top{padding:0 14px}
+  .top{padding:0 14px;gap:8px}
+  .crumb{display:none}
+  .topsp{display:none}
+  .toptools{flex:1;justify-content:flex-end}
 }
