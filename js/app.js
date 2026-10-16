@@ -11,9 +11,9 @@ function pct(x){ return Math.round(x*100) }
 var TITLES={home:'总览',assess:'能力测评',plan:'我的方案',bank:'题库',read:'仔细阅读',
   listen:'听力',match:'长篇匹配',cloze:'选词填空',vocab:'生词速记',wrong:'错题本',
   stats:'数据分析',import:'导入题目',settings:'设置',redo:'错题重做',method:'找答案手册',
-  words:'今日新词',notes:'摘抄本',account:'账号'};
+  words:'今日新词',notes:'摘抄本',account:'账号',book:'单词本',review:'今日复习'};
 
-/* ---------- 考试切换（CET-6 / 349 药学综合） ---------- */
+/* ---------- 考试切换（英语 / 349 药学综合） ---------- */
 C.exam = get('cet6_exam','cet6');
 C.applyExam = function(){
   var k = C.exam;
@@ -72,6 +72,8 @@ function route(){
   else if(view==='method') renderMethod();
   else if(view==='words') renderWords();
   else if(view==='notes') renderNotes();
+  else if(view==='book') (C.BOOKV && C.BOOKV.renderBook) ? C.BOOKV.renderBook() : renderHome();
+  else if(view==='review') (C.BOOKV && C.BOOKV.renderReview) ? C.BOOKV.renderReview() : renderHome();
   else if(view==='account') renderAccount();
   else renderHome();
   window.scrollTo(0,0);
@@ -150,7 +152,7 @@ function renderHome(){
     h+=T.ring(0, 118, '—', '未测评');
   }
   h+='<div style="flex:1;min-width:240px">';
-  h+='<h1>CET-6 训练台</h1>';
+  h+='<h1>英语训练台</h1>';
   h+='<p class="sub" style="margin-bottom:8px">目标不是检验你，是让你在最短时间里<b>学会</b>。所有提示都能开，学会了再关掉做模拟考试。</p>';
   if(e){
     var gap=425-e.score;
@@ -525,6 +527,7 @@ function pbarHTML(cfg){
   h+='<div class="pmenu" onclick="CET6.menuClose(this)">';
   h+='<button class="sm" title="实在不会，按规律猜一个（G）" onclick="CET6.TOOLS.blindGuess(CET6.TOOLS.cur0())">猜一个</button>';
   h+='<button class="sm" title="整篇逐句翻译（T）" onclick="CET6.TOOLS.toggleZh()">逐句翻译</button>';
+  h+='<button class="sm" title="把整篇英文读出来，边听边看（练听力也练语感）" onclick="CET6.TOOLS.readAloud()">朗读全文</button>';
   h+='<button class="sm" title="把选中的词收进生词本（S）" onclick="CET6.TOOLS.addSel()">收词</button>';
   h+='<button class="sm" title="翻译划选的整段（R）" onclick="CET6.TOOLS.translateSel()">译选中</button>';
   h+='<button class="sm" title="把选中的一段存进摘抄本" onclick="CET6.TOOLS.saveSel()">存摘抄</button>';
@@ -791,8 +794,7 @@ C.play=function(){
   });
 };
 function speak(text,rate,cb){
-  if(!('speechSynthesis' in window)){ cb(false); return }
-  var vs=window.speechSynthesis.getVoices()||[];
+  if(!('speechSynthesis' in window)){ cb(false); return }  var vs=window.speechSynthesis.getVoices()||[];
   var v=vs.filter(function(x){return /^en[-_]GB/i.test(x.lang)})[0]
      || vs.filter(function(x){return /^en[-_]US/i.test(x.lang)})[0]
      || vs.filter(function(x){return /^en/i.test(x.lang)})[0];
@@ -809,6 +811,8 @@ function speak(text,rate,cb){
   }
   setTimeout(next,80);
 }
+/* 朗读能力给别的模块用（词汇复习卡、短文朗读都靠它） */
+C.speak = speak;
 
 /* ================= 长篇匹配 ================= */
 function renderMatch(id){
