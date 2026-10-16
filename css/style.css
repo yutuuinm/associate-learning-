@@ -4,6 +4,7 @@
    ============================================================ */
 
 :root{
+  color-scheme:light;   /* 关掉浏览器的"强制深色"，否则本页配色会被翻掉、文字看不清 */
   --brand:#2563EB; --brand-d:#1D4ED8; --brand-l:#EFF5FF; --brand-b:#C7DBFF;
   --ink:#0F172A; --ink2:#334155; --mut:#64748B; --mut2:#94A3B8;
   --line:#E4E9F0; --line2:#EFF3F8;
@@ -635,10 +636,19 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
 .otag.warn{background:var(--wnbg);color:var(--wn);border:1px solid var(--wnln)}
 .otag.good{background:var(--okbg);color:var(--ok);border:1px solid var(--okln)}
 .otag.mid{background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand-b)}
-.solve{margin-top:10px;border:1px solid var(--brand-b);border-radius:8px;background:var(--brand-l);padding:10px 12px}
-.solve .sd{font-size:13px;line-height:1.75;margin-bottom:6px}
-.solve .sd b{color:var(--brand-d)}
-.solve .kw{background:#fff;border:1px dashed var(--brand-b);border-radius:4px;padding:0 3px;font-weight:600}
+/* 找答案面板：整块做成深底白字。
+   原来它挂在浅蓝底上、还混用了灰色 .hint，一旦背景被浏览器的"强制深色"翻过来，
+   灰字压在深底上就完全看不清了 —— 所以这里把背景和文字色都钉死，不跟着外部变 */
+.solve{
+  margin-top:10px;border:1px solid #1E3A8A;border-radius:10px;
+  background:linear-gradient(180deg,#1B2A55 0%,#141F3C 100%);
+  padding:12px 14px;color:#F8FAFF;
+}
+.solve .sd{font-size:13px;line-height:1.8;margin-bottom:6px;color:#F8FAFF}
+.solve .sd b{color:#93C5FD}
+.solve .hint,.solve .sd.hint{color:#CBD8F2}
+.solve .hint b,.solve .sd.hint b{color:#fff}
+.solve .kw{background:rgba(255,255,255,.16);border:1px dashed #7C9BE0;border-radius:4px;padding:0 4px;font-weight:600;color:#fff}
 .sdist{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}
 .sdist .sdbox{display:inline-flex;align-items:center;gap:3px}
 .sdist .sdbar{display:inline-block;height:8px;background:var(--brand);border-radius:2px;vertical-align:middle}
@@ -700,6 +710,39 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
 .wc:hover i{opacity:.85}
 .wc i{font-style:normal;font-size:9.5px;font-weight:400;opacity:.6}
 
+/* ================= 单词本 + 今日复习（遗忘曲线） ================= */
+/* 复习卡：一个大词 + 翻开后是释义/例句/阶梯，一屏只做一件事 */
+.big-card{padding:28px 22px 22px}
+.rw{
+  font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1.2;text-align:center;
+  font-family:var(--mono);word-break:break-word;color:var(--ink);
+}
+.rd{
+  font-size:16px;color:var(--ink);text-align:center;margin:12px auto 0;
+  line-height:1.7;max-width:640px;
+}
+.rctx{
+  margin:14px auto 0;max-width:640px;padding:11px 14px;border-radius:var(--r2);
+  background:var(--brand-l);border:1px solid var(--brand-b);text-align:left;
+}
+.rctx .exen{font-size:14px}
+/* 复习阶梯：一排格子，当前那一格高亮，答对往右挪 */
+.rlad{
+  display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
+  margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--line);
+}
+.lad{
+  font-size:11.5px;padding:3px 10px;border-radius:14px;white-space:nowrap;
+  background:#F1F5F9;color:var(--mut2);border:1px solid var(--line2);
+}
+.lad.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(37,99,235,.28)}
+/* 单词本表格里的小喇叭 */
+.spk{
+  margin-left:6px;font-size:12px;opacity:.35;cursor:pointer;
+  transition:.12s;user-select:none;
+}
+.spk:hover{opacity:1}
+
 /* 响应式 */
 /* 顶栏东西多（划词/辅助/即时反馈 + 账号灯 + AI 灯 + 查词 + ?），
    窗口一窄就换行、看着像错位。这里先砍英文标签，再收间距，保证功能都还在 */
@@ -718,4 +761,13 @@ kbd{font-family:var(--mono);font-size:11.5px;background:#F1F5F9;border:1px solid
   .crumb{display:none}
   .topsp{display:none}
   .toptools{flex:1;justify-content:flex-end}
+  /* 复习卡在窄屏：词别太大、阶梯换行后居中 */
+  .big-card{padding:20px 14px 16px}
+  .rw{font-size:27px}
+  .rd{font-size:15px}
+  .rlad{gap:5px}
+  .lad{font-size:11px;padding:2px 8px}
+  /* 单词本表格：窄屏把「复习次数 / 下次」两列藏掉，词和释义还能看 */
+  .wtbl th:nth-child(4),.wtbl td:nth-child(4),
+  .wtbl th:nth-child(5),.wtbl td:nth-child(5){display:none}
 }
