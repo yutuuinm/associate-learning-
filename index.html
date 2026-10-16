@@ -103,10 +103,14 @@
         <span class="pill" id="pMaster" title="掌握度">掌握度 —</span>
         <a class="pill" href="#/p/wrong" id="pWrong" title="错题本" style="text-decoration:none">错题 0</a>
       </div>
-      <span class="kbtn" id="accLamp" onclick="location.href='#/account'" title="账号，点开登录或切换">账号</span>
-      <span class="kbtn" id="aiLamp" onclick="location.href='#/settings'" title="AI 状态，点开去设置页自检">AI</span>
-      <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.queryOpen()" title="查词（/）：单词查释义、整句拆句子">查词</span>
-      <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
+      <span class="tstatus">
+        <span class="kbtn acc-off" id="accLamp" onclick="location.href='#/account'" title="账号，点开登录或切换">登录</span>
+        <span class="kbtn ai-no" id="aiLamp" onclick="location.href='#/settings'" title="AI 状态，点开去设置页自检">AI</span>
+      </span>
+      <span class="tstatus">
+        <span class="kbtn wide" onclick="event.stopPropagation();CET6.TOOLS.queryOpen()" title="查词（/）：单词查释义、整句拆句子">查词</span>
+        <span class="kbtn" onclick="event.stopPropagation();CET6.TOOLS.kbd()" title="快捷键（?）">?</span>
+      </span>
     </header>
 
     <div class="content" id="app"></div>
