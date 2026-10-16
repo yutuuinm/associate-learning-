@@ -367,9 +367,11 @@ C.showTip=function(el,word,def,tag,e){
   el.innerHTML='<div class="tw">'+C.esc(word)+'</div><div class="tc">'+C.esc(def)+'</div>'+(tag?'<div class="ai">AI 生成</div>':'');
   el.style.display='block';
   if(!e) return;
+  /* 同样按真实尺寸贴边收：以前写死 340/350，释义长一点就被切掉右边 */
+  var w=el.offsetWidth||260, h=el.offsetHeight||90;
   var x=e.clientX+14, y=e.clientY+18;
-  if(x+340>window.innerWidth) x=window.innerWidth-350;
-  if(y+90>window.innerHeight) y=window.innerHeight-100;
+  if(x+w > window.innerWidth-8) x = Math.max(8, e.clientX-14-w);   /* 右边放不下就翻到左边 */
+  if(y+h > window.innerHeight-8) y = Math.max(8, e.clientY-10-h);   /* 下面放不下就翻到上面 */
   el.style.left=x+'px'; el.style.top=y+'px';
 };
 
@@ -403,12 +405,22 @@ document.addEventListener('mouseup', function(e){
     bar.style.display = 'flex';
     var bw = bar.querySelector('[data-a="word"]');
     if(bw) bw.style.display = (one && C._sel.word.length > 1) ? '' : 'none';
-    var x = r.left + r.width/2, y = r.top;
-    if(y < 60) y = r.bottom + 8;                       // 选区太靠上就挂下面
-    bar.style.left = Math.max(70, Math.min(window.innerWidth - 70, x)) + 'px';
-    bar.style.top = y + 'px';
+    /* 先显示出来再量宽度：浮动条有几个按钮会变（选中一个词和选中一整段不一样，
+       窄屏还会自动换行），拿固定数字去钳位置的话，靠右划选时它会冲出屏幕被切掉 */
+    var barW = bar.offsetWidth || 260;
+    var belown = r.top < 64;                           // 选区太靠上就挂到下面
+    bar.style.transform = belown ? 'translate(-50%,0)' : 'translate(-50%,-100%)';
+    bar.style.left = C.clampBarX(r.left + r.width/2, barW, window.innerWidth) + 'px';
+    bar.style.top = (belown ? r.bottom + 8 : r.top - 4) + 'px';
   }, 5);
 });
+/* 把工具条中心点夹在屏幕里：左右各留 8px，按它自己的真实宽度算 */
+C.clampBarX = function(x, barW, winW){
+  var half = Math.max(Number(barW)||0, 120)/2 + 8;
+  var lo = half, hi = winW - half;
+  if(hi < lo) return Math.round(winW/2);             // 屏幕比浮动条还窄：居中放
+  return Math.round(Math.min(Math.max(Number(x)||0, lo), hi));
+};
 document.addEventListener('mousedown', function(e){
   if(e && e.target && e.target.closest && e.target.closest('#selbar')) return;  /* 别清掉选区 */
   var bar = C.$('selbar');
